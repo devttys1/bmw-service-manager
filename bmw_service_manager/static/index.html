@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BMW Service History</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    // Appearance (System, Light or Dark) before the page draws, so it doesn't flash.
+    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <header>
+    <div class="row spread">
+      <div>
+        <h1>BMW Service History</h1>
+        <p class="sub">CIC · NBT · NBT Evo · ENTRY · CHAMP2 head units over ENET</p>
+      </div>
+      <div id="car-status" class="car-status" data-state="not_set" role="status" aria-live="polite">
+        <span class="dot"></span><span class="text"><strong>Not connected</strong><span class="detail">Find the vehicle below</span></span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Vehicle</h2>
+      <div class="row">
+        <button id="discover">Find vehicle</button>
+        <label>IP address <input id="host" placeholder="169.254.x.x" size="16"></label>
+        <label>Port <input id="port" type="number" value="6801" size="6"></label>
+      </div>
+      <div id="vehicles" class="muted">Connect an ENET cable, switch the ignition on, then click Find vehicle.</div>
+    </section>
+
+    <section class="card">
+      <div class="row spread">
+        <h2>2. Service history</h2>
+        <div class="row">
+          <button id="add-record">Add record</button>
+          <button id="sort-km" class="secondary" title="Highest mileage at the top">Sort by mileage</button>
+          <label class="file-btn">Import .tst<input id="import-tst" type="file" accept=".tst,.txt" hidden></label>
+          <label class="file-btn">Import .json<input id="import-json" type="file" accept=".json" hidden></label>
+          <button id="export-tst" class="secondary">Export .tst</button>
+          <button id="export-json" class="secondary">Export .json</button>
+          <button id="show-qr" class="secondary" title="Scan it with Stampbook on an iPhone or iPad">Show QR code</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>VIN <input id="vin" placeholder="optional, 17 characters" size="20" maxlength="17" autocomplete="off" spellcheck="false"></label>
+        <span class="muted small">Filled in when the car is found. Stampbook files the history under this car.</span>
+      </div>
+      <div id="qr-panel" class="qr-panel" hidden>
+        <div class="qr-code" id="qr-code"></div>
+        <div class="qr-side">
+          <strong>Scan with Stampbook</strong>
+          <span class="muted">On the iPhone or iPad, open Stampbook and choose History &gt; ⋯ &gt; Import from QR code, then point the camera at this code. It carries the records themselves, not a link.</span>
+          <div class="row" id="qr-nav" hidden>
+            <button id="qr-prev" class="secondary">← Previous</button>
+            <span id="qr-count"></span>
+            <button id="qr-next" class="secondary">Next →</button>
+          </div>
+          <span class="muted small" id="qr-hint"></span>
+          <div><button id="qr-close" class="secondary">Close</button></div>
+        </div>
+      </div>
+      <p class="muted">Records are written in this order. BMW tools write the newest record first. Drag a record to move it, or use ↑ and ↓.</p>
+      <div id="records"></div>
+    </section>
+
+    <section class="card">
+      <h2>3. Write to head unit</h2>
+      <div class="row">
+        <label><input type="checkbox" id="erase" checked> Erase existing history first</label>
+        <label><input type="checkbox" id="reset" checked> Restart head unit afterwards</label>
+      </div>
+      <div class="row">
+        <button id="preview" class="secondary">Preview requests</button>
+        <button id="write" class="danger">Write to car</button>
+      </div>
+      <pre id="write-output" class="output" hidden></pre>
+      <p class="warn">The head unit's existing history cannot be read back. Erasing it is permanent, so export what you write.</p>
+    </section>
+
+    <section class="card">
+      <div class="row spread">
+        <h2>Service due (CBS)</h2>
+        <button id="read-cbs" class="secondary">Read CBS</button>
+      </div>
+      <p class="muted">Service due data from the instrument cluster. Writing service history does not clear these warnings.</p>
+      <p class="warn">Reset sets one item to 100% and adds one to its service count (<code>2E 10 01</code>, as ISTA+ defines it), in the ECU that owns it: oil and NOx additive in the DME, brake pads in the DSC, everything else in the instrument cluster. Due dates are sent as unchanged. Only the oil reset has been seen to work on a car. A diagnostic reset may mark the cluster's CBS data as manipulated. The cluster's own service menu does not.</p>
+      <pre id="cbs-output" class="output" hidden></pre>
+      <div id="cbs-list" class="cbs-list"><div class="placeholder">
+        <strong>Not read yet</strong>
+        <span class="muted">Click Read CBS to see the service items the instrument cluster shows: how much is left of each, and when it's due.</span>
+      </div></div>
+    </section>
+
+    <section class="card" id="probe-card" hidden>
+      <h2>4. Read from head unit <span class="tag">experimental</span></h2>
+      <p class="muted">No known command reads service history back. These read-only probes look for one. They never start a routine or change anything on the car. The DID scan can target any ECU, in case another one keeps a copy of the history.</p>
+      <div class="row">
+        <button id="probe-routines" class="secondary">Ask for routine results (31 03)</button>
+      </div>
+      <p class="muted">Optional: enter one entry shown in iDrive under Vehicle info → Service history. The scan flags any response containing its date or mileage.</p>
+      <div class="row">
+        <label>Known entry date <input id="known-date" type="date"></label>
+        <label>Mileage (km) <input id="known-km" type="number" min="0" size="8"></label>
+      </div>
+      <div class="row">
+        <label>ECU <select id="did-ecu">
+          <option value="63">63 Head unit</option>
+          <option value="60">60 Instrument cluster</option>
+          <option value="40">40 Body domain (BDC/FEM)</option>
+          <option value="10">10 Gateway</option>
+          <option value="12">12 Engine (DME)</option>
+        </select></label>
+        <label>or address <input id="did-ecu-custom" placeholder="hex" size="3" maxlength="2"></label>
+        <label>Session <select id="did-session">
+          <option value="01">01 Default</option>
+          <option value="03">03 Extended</option>
+          <option value="42">42 BMW (via 03)</option>
+        </select></label>
+        <label>DID from <input id="did-start" value="0000" size="5"></label>
+        <label>to <input id="did-end" value="FFFF" size="5"></label>
+        <button id="probe-dids" class="secondary">Scan DIDs (22)</button>
+        <button id="stop-dids" class="secondary" hidden>Stop</button>
+      </div>
+      <div class="row"><progress id="did-progress" max="1" value="0" hidden></progress><span id="did-status" class="muted"></span></div>
+    </section>
+
+    <section class="card">
+      <div class="row spread"><h2>Log</h2><button id="clear-log" class="secondary">Clear</button></div>
+      <pre id="log"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Advanced</h2>
+      <div class="settings">
+        <label class="setting"><span><strong>Show probe tools</strong><br>
+          <span class="muted small">Read-only diagnostics: routine results and a data-identifier scan of any control unit.</span></span>
+          <input type="checkbox" id="show-probe"></label>
+        <label class="setting"><strong>Appearance</strong>
+          <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <div class="setting"><strong>Version</strong><span id="version" class="muted"></span></div>
+      </div>
+    </section>
+  </main>
+
+  <template id="record-tpl">
+    <div class="record">
+      <div class="rec-head">
+        <div class="date-tile"><span class="day"></span><span class="month"></span></div>
+        <div class="rec-main">
+          <div class="rec-line"><strong class="km"></strong><span class="pill rec-status"></span></div>
+          <div class="dealer muted"></div>
+          <div class="chips"></div>
+        </div>
+        <div class="rec-actions">
+          <button data-act="edit" class="secondary">Edit</button>
+          <button data-act="up" class="secondary" title="Move up">↑</button>
+          <button data-act="down" class="secondary" title="Move down">↓</button>
+          <button data-act="remove" class="danger">Remove</button>
+        </div>
+      </div>
+      <div class="rec-edit" hidden>
+      <div class="grid">
+        <label>Date <input data-f="date" type="date"></label>
+        <label>Mileage (km) <input data-f="mileage_km" type="number" min="0" max="4294967295" placeholder="0"></label>
+        <label>Dealer number <input data-f="dealer_number" maxlength="7" list="dealers" autocomplete="off" placeholder="up to 7 characters"></label>
+        <label>Dealer <select data-f="bmw_dealer"><option value="1">BMW dealer</option><option value="0">Independent</option></select></label>
+        <label>Status <select data-f="status"></select></label>
+        <label>Correction <input data-f="correction" type="number" min="0" max="255" placeholder="0"></label>
+      </div>
+      <table class="items"><thead><tr><th>Service item</th><th>Status</th><th>Months</th><th>km</th><th></th></tr></thead><tbody></tbody></table>
+      <button data-act="add-item" class="secondary">Add item</button>
+      </div>
+    </div>
+  </template>
+
+  <datalist id="dealers"></datalist>
+
+  <script src="/static/icons.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
