@@ -33,13 +33,32 @@ def port_free(bind: str, port: int) -> bool:
             return False
 
 
+def exit_with_parent() -> None:
+    """Stop when the program that started this one goes away, even if it crashed or was force-quit."""
+    import os
+    import threading
+    import time
+
+    parent = os.getppid()
+
+    def watch():
+        while os.getppid() == parent:
+            time.sleep(1)
+        os._exit(0)
+
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="BMW head-unit service history manager")
     parser.add_argument("--bind", default="127.0.0.1", help="address for the web UI (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8800, help="port for the web UI (default 8800, or the next free one)")
     parser.add_argument("--simulate", action="store_true", help="talk to a built-in fake car instead of a real one")
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser window")
+    parser.add_argument("--exit-with-parent", action="store_true", help=argparse.SUPPRESS)  # the Mac app's launcher
     args = parser.parse_args()
+    if args.exit_with_parent:
+        exit_with_parent()
 
     host, port = "", DIAG_PORT
     if args.simulate:

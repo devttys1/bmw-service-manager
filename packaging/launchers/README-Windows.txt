@@ -1,5 +1,5 @@
-BMW Service Manager for Windows
-===============================
+BMW Service Manager for Windows, version {{VERSION}}
+==============================================
 
 Nothing else needs installing: this folder has everything, including its own copy of Python.
 

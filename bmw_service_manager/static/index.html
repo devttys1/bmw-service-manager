@@ -81,16 +81,17 @@
         <button id="write" class="danger">Write to car</button>
       </div>
       <pre id="write-output" class="output" hidden></pre>
-      <p class="warn">The head unit's existing history cannot be read back. Erasing it is permanent, so export what you write.</p>
+      <p class="warn">The head unit's existing history cannot be read back. Erasing it is permanent, so back up your service records on the head unit before writing.</p>
     </section>
 
     <section class="card">
       <div class="row spread">
-        <h2>Service due (CBS)</h2>
+        <h2>Service due (CBS)
+          <span class="info" tabindex="0" role="button" aria-label="About resetting service items" aria-describedby="cbs-tip">i<span class="tip" id="cbs-tip" role="tooltip">Reset sets one item to 100% and adds one to its service count, in the ECU that owns it: oil and NOx additive in the DME, brake pads in the DSC, everything else in the instrument cluster. Due dates are sent as unchanged. Only the oil reset has been seen to work on a car. A diagnostic reset may mark the cluster's CBS data as manipulated. The cluster's own service menu does not.</span></span>
+        </h2>
         <button id="read-cbs" class="secondary">Read CBS</button>
       </div>
       <p class="muted">Service due data from the instrument cluster. Writing service history does not clear these warnings.</p>
-      <p class="warn">Reset sets one item to 100% and adds one to its service count (<code>2E 10 01</code>, as ISTA+ defines it), in the ECU that owns it: oil and NOx additive in the DME, brake pads in the DSC, everything else in the instrument cluster. Due dates are sent as unchanged. Only the oil reset has been seen to work on a car. A diagnostic reset may mark the cluster's CBS data as manipulated. The cluster's own service menu does not.</p>
       <pre id="cbs-output" class="output" hidden></pre>
       <div id="cbs-list" class="cbs-list"><div class="placeholder">
         <strong>Not read yet</strong>

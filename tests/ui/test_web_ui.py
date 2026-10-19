@@ -206,3 +206,20 @@ def test_dealers_remembered(app):
     # Remembered in this browser, even with no records left.
     page.reload()
     assert page.locator("#dealers option").evaluate_all("os => os.map(o => o.value)") == ["TEST1"]
+
+
+def test_cbs_details_in_a_tooltip(app):
+    page, _ = app
+    tip = page.locator("#cbs-tip")
+    expect(tip).to_be_hidden()  # not a block of text on the page any more
+    assert tip.inner_text().startswith("Reset sets one item to 100% and adds one to its service count, in the ECU that owns it")
+    assert "manipulated" in tip.inner_text() and "2E 10 01" not in tip.inner_text()
+    page.hover(".info")
+    expect(tip).to_be_visible()
+    page.mouse.move(0, 0)
+    expect(tip).to_be_hidden()
+    page.focus(".info")  # keyboard, or a tap on a touch screen
+    expect(tip).to_be_visible()
+    expect(page.locator(".warn").first).to_have_text(
+        "The head unit's existing history cannot be read back. Erasing it is permanent, "
+        "so back up your service records on the head unit before writing.")

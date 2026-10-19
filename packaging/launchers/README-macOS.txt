@@ -1,25 +1,28 @@
-BMW Service Manager for Mac
-===========================
+BMW Service Manager for Mac, version {{VERSION}}
+==========================================
 
-Nothing else needs installing: this folder has everything, including its own copy of Python.
+Nothing else needs installing: the app has everything, including its own copy of Python.
+It runs on macOS 13 (Ventura) or later, on Apple silicon or Intel.
 
-To start it
-  1. Double-click "Start BMW Service Manager".
-  2. The first time, macOS says it can't check the app for malicious software
-     (it isn't from the App Store). Click Done (or OK), then:
-       Apple menu > System Settings > Privacy & Security, scroll down, and next to
-       "Start BMW Service Manager" was blocked, click Open Anyway. Enter your password
-       if asked, then click Open Anyway again.
-     You only do this once.
-  3. A Terminal window opens and your web browser shows BMW Service Manager.
-     Leave the Terminal window open while you use it; close it to stop.
+To install it
+  Drag "BMW Service Manager" into your Applications folder, then open it from there.
 
-If macOS asks whether Terminal may find devices on your local network, click Allow:
-that's how it finds the car.
+The first time
+  macOS says it can't check the app for malicious software (it isn't from the App Store).
+  Click Done, then: Apple menu > System Settings > Privacy & Security, scroll down, and next
+  to "BMW Service Manager" was blocked, click Open Anyway. Enter your password if asked,
+  then click Open Anyway again. You only do this once.
 
-To try it without a car, double-click "Try without a car" instead: it starts with a
-pretend car, so you can look around before plugging anything in. (macOS asks about it
-the first time too: allow it the same way.)
+  To skip that step entirely, install it with one line in Terminal instead (see "Start it"
+  at https://github.com/devttys1/bmw-service-manager).
+
+Using it
+  A small window opens, and your web browser shows BMW Service Manager. Keep the window open
+  while you use it; quit the app (Command-Q) to stop. Turn on "Pretend car" to try it
+  without a car.
+
+  If macOS asks whether BMW Service Manager may find devices on your local network, click
+  Allow: that's how it finds the car.
 
 Connecting to the car: see "Connecting to the car" at
 https://github.com/devttys1/bmw-service-manager
