@@ -265,3 +265,9 @@ pre#log {
   word-break: break-all;
   font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* Links between the pages: Service history and Drive replay. */
+.pages { display: flex; gap: 4px; }
+.pages a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; font-size: 14px; }
+.pages a:hover { color: var(--text); background: var(--card); }
+.pages a[aria-current="page"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }

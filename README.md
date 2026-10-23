@@ -16,11 +16,11 @@ It was developed on an F48 X1 with NBT Evo; other cars should work but haven't a
 
 | Your computer | Download |
 | --- | --- |
-| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.0.1-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.0.1/BMW-Service-Manager-1.0.1-macOS.zip) |
-| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.0.1-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.0.1/BMW-Service-Manager-1.0.1-Windows.zip) |
-| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.0.1-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.0.1/BMW-Service-Manager-1.0.1-Linux.tar.gz) |
+| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.1.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.1.0/BMW-Service-Manager-1.1.0-macOS.zip) |
+| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.1.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.1.0/BMW-Service-Manager-1.1.0-Windows.zip) |
+| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.1.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.1.0/BMW-Service-Manager-1.1.0-Linux.tar.gz) |
 
-This is version 1.0.1. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
+This is version 1.1.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
 
 ## Start it
 
@@ -57,7 +57,7 @@ how it finds the car. It needs macOS 13 (Ventura) or later.
 
 ### Windows
 
-1. Right-click the downloaded **BMW-Service-Manager-1.0.1-Windows.zip**, choose **Extract All...**,
+1. Right-click the downloaded **BMW-Service-Manager-1.1.0-Windows.zip**, choose **Extract All...**,
    then **Extract**. Use the extracted **BMW Service Manager** folder, not the zip.
 2. Double-click **Try without a car**.
 3. The first time, Windows may say **Windows protected your PC**. Click **More info**, then
@@ -72,7 +72,7 @@ how it finds the car.
 ### Linux
 
 1. Extract the download: right-click it and choose **Extract Here**, or in a terminal
-   `tar xzf BMW-Service-Manager-1.0.1-Linux.tar.gz`.
+   `tar xzf BMW-Service-Manager-1.1.0-Linux.tar.gz`.
 2. Run **try-without-a-car.sh** in the **BMW Service Manager** folder (double-click it and
    choose **Run in Terminal**, or run it from a terminal).
 3. Your web browser shows BMW Service Manager. If it doesn't open by itself, open the address
@@ -124,6 +124,13 @@ records on the head unit before writing: for example, photograph its Service his
 
 **To a phone or iPad.** **Show QR code** turns the history into a QR code that Stampbook (an
 iPhone and iPad app) scans to copy it across. The code holds the records themselves, not a link.
+
+**Drive replay.** The **Drive replay** page (top right) plays back a drive recorded with the
+Logger in Boostbook, the iPhone app: open its `.bblog.gz` file, or click **Sample drive** to
+see one. The car moves over a 3D map of the terrain, turning, pitching and rolling as it did,
+with its wheels and xDrive in an X-ray view, lap times, charts of every value and a g-g circle.
+**Google Earth (.kml)** and **CSV** export it. The file is read in the browser, not uploaded;
+the map's imagery and terrain come from the internet (Esri, OpenTopoMap, OpenStreetMap, AWS).
 
 **Light or dark.** Under **Advanced** at the bottom of the page, **Appearance** chooses Light,
 Dark or System (follow the computer).

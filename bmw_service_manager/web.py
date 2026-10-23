@@ -53,6 +53,11 @@ def create_app(default_host: str = "", default_port: int = hsfz.DIAG_PORT, simul
     def index():
         return send_from_directory(STATIC, "index.html")
 
+    @app.get("/replay")
+    def replay():
+        """Drive Replay: plays back drives logged by the iOS app, in the browser."""
+        return send_from_directory(STATIC, "replay.html")
+
     @app.get("/static/<path:name>")
     def static_file(name):
         return send_from_directory(STATIC, name)

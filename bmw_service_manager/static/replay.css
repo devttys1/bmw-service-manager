@@ -1,0 +1,131 @@
+/* Drive Replay: the map fills the window, the car and its instruments beside it, the timeline
+   and charts below. On top of style.css (its colours, buttons and inputs). */
+
+body.replay { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+body.replay header, body.replay main { max-width: none; margin: 0; }
+
+.replay-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
+  padding: 10px 16px !important; background: var(--card); border-bottom: 1px solid var(--border);
+}
+.replay-bar .brand { display: flex; flex-direction: column; min-width: 0; }
+.replay-bar h1 { font-size: 19px; }
+.replay-bar .sub { margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.replay-bar .actions { margin: 0 0 0 auto; }
+.empty { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 16px; overflow: auto; }
+.drop {
+  max-width: 620px; padding: 32px; border: 2px dashed var(--border); border-radius: 16px; background: var(--card); text-align: center;
+}
+.drop.over, body.dragging .drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.drop h2 { font-size: 22px; }
+.row.center { justify-content: center; }
+.small { font-size: 12.5px; }
+.err { color: var(--danger); }
+
+.player {
+  flex: 1; min-height: 0; display: grid; padding: 0 !important;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "stage side" "transport side";
+}
+.stage { grid-area: stage; position: relative; min-height: 0; }
+.map { position: absolute; inset: 0; }
+.side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: var(--card); border-left: 1px solid var(--border); }
+.transport { grid-area: transport; padding: 6px 12px 10px; background: var(--card); border-top: 1px solid var(--border); }
+
+/* Over the map: the readout, and the camera and map settings. */
+.hud {
+  position: absolute; left: 12px; top: 12px; z-index: 2; pointer-events: none;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(14, 17, 21, 0.72); color: #f2f4f6; backdrop-filter: blur(6px);
+  font-variant-numeric: tabular-nums; min-width: 170px;
+}
+.hud-speed { font-size: 40px; font-weight: 700; line-height: 1; }
+.hud-speed small { font-size: 13px; font-weight: 500; margin-left: 4px; opacity: 0.7; }
+.hud-grid { display: grid; grid-template-columns: auto auto; gap: 1px 14px; font-size: 13px; }
+.hud-grid span { opacity: 0.65; }
+.hud-grid strong { text-align: right; font-weight: 600; }
+.hud-lap { display: grid; grid-template-columns: auto auto; gap: 0 12px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.15); font-size: 13px; }
+.hud-lap strong { font-size: 20px; text-align: right; }
+.hud-lap .delta { grid-column: 1 / -1; text-align: right; font-weight: 600; }
+.delta.gain { color: #30d158; }
+.delta.loss { color: #ff6b5f; }
+
+.map-tools {
+  position: absolute; left: 12px; bottom: 34px; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(6px); border: 1px solid var(--border); font-size: 13px; max-width: calc(100% - 24px);
+}
+.map-tools label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.map-tools select { padding: 3px 6px; font-size: 13px; }
+.map-tools input[type="range"] { width: 80px; padding: 0; }
+.seg { display: inline-flex; border: 1px solid var(--accent); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; color: var(--accent); padding: 4px 10px; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--accent); }
+.seg button.on { background: var(--accent); color: #fff; }
+
+/* The close-up car. */
+.car-panel { position: relative; height: 250px; flex: none; border-bottom: 1px solid var(--border);
+  background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--accent) 10%, var(--card)), var(--card)); }
+.car-view { position: absolute; inset: 0; overflow: hidden; }
+.car-view canvas { display: block; cursor: grab; }
+.car-label {
+  position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+  font: 600 11.5px/1.2 system-ui, sans-serif; font-variant-numeric: tabular-nums;
+  padding: 3px 7px; border-radius: 6px; background: rgba(14, 17, 21, 0.78); color: #fff;
+}
+.xray { position: absolute; right: 10px; top: 8px; font-size: 12.5px; color: var(--muted); display: flex; gap: 5px; align-items: center; }
+.car-caption { position: absolute; left: 10px; bottom: 6px; right: 10px; pointer-events: none; }
+
+.instruments { display: grid; grid-template-columns: 1.25fr 1fr; height: 150px; flex: none; border-bottom: 1px solid var(--border); }
+.instruments canvas { width: 100%; height: 100%; display: block; }
+
+.tabs { display: flex; flex: none; border-bottom: 1px solid var(--border); }
+.tabs button {
+  flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 8px; font-size: 14px;
+  border-bottom: 2px solid transparent;
+}
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 12px; }
+
+table.values, table.laps { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.values td, table.laps td, table.laps th { padding: 3px 4px; border-bottom: 1px solid var(--border); }
+table.values tr.group td { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 10px; border-bottom: 0; }
+table.values td.v { text-align: right; font-weight: 600; white-space: nowrap; }
+table.values td.bar { width: 70px; }
+table.values .meter { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+table.values .meter span { display: block; height: 100%; background: var(--accent); }
+table.laps th { text-align: left; color: var(--muted); font-weight: 500; }
+table.laps td.num, table.laps th.num { text-align: right; }
+table.laps tr { cursor: pointer; }
+table.laps tr:hover td { background: var(--bg); }
+table.laps tr.best td { color: var(--green); font-weight: 600; }
+table.laps tr.current td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.drive-info { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.drive-info dt { color: var(--muted); }
+.drive-info dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.controls { margin: 0 0 6px; gap: 8px; }
+.controls .spacer { flex: 1; }
+.controls label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.controls select { padding: 3px 6px; font-size: 13px; }
+button.icon { padding: 3px 10px; font-size: 15px; line-height: 1.2; }
+button.play { min-width: 46px; }
+.clock { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+.clock strong { color: var(--text); font-size: 16px; }
+.timeline { width: 100%; height: 40px; display: block; cursor: pointer; border-radius: 6px; background: var(--bg); touch-action: none; }
+.transport .chips { margin: 6px 0; }
+.transport .chip { cursor: pointer; border: 1px solid transparent; user-select: none; --tint: var(--gray); }
+.transport .chip.on { --tint: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.chart { width: 100%; height: 170px; display: block; cursor: crosshair; border-radius: 6px; background: var(--bg); touch-action: none; }
+
+.maplibregl-ctrl-attrib { font-size: 10.5px; }
+
+@media (max-width: 980px) {
+  body.replay { height: auto; overflow: auto; }
+  .player { grid-template-columns: 1fr; grid-template-rows: 60vh auto auto; grid-template-areas: "stage" "transport" "side"; }
+  .side { border-left: 0; border-top: 1px solid var(--border); }
+  .tab-body { max-height: 420px; }
+  .hud { transform: scale(0.85); transform-origin: top left; }
+  .replay-bar .actions { margin-left: 0; }
+}

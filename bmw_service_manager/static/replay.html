@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drive Replay</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="/static/replay.css">
+  <script>
+    // Appearance (System, Light or Dark) before the page draws, so it doesn't flash.
+    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <script type="importmap">{ "imports": { "three": "/static/vendor/three.module.min.js" } }</script>
+  <script src="/static/vendor/maplibre-gl.js"></script>
+</head>
+<body class="replay">
+  <header class="replay-bar">
+    <div class="brand">
+      <h1>Drive Replay</h1>
+      <span class="sub" id="drive-name">Drives from Boostbook's Logger, on a 3D map</span>
+    </div>
+    <nav class="pages" aria-label="Pages">
+      <a href="/">Service history</a>
+      <a href="/replay" aria-current="page">Drive replay</a>
+    </nav>
+    <div class="row actions">
+      <label class="file-btn">Open drive…<input id="open" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
+      <button id="sample" class="secondary">Sample drive</button>
+      <button id="export-kml" class="secondary" disabled title="A KML file for Google Earth: the path, and the car's track with its heading, pitch, roll and values to play back with Earth's time slider">Google Earth (.kml)</button>
+      <button id="export-csv" class="secondary" disabled title="Ten rows a second: time, position, attitude and every value">CSV</button>
+    </div>
+  </header>
+
+  <section id="empty" class="empty">
+    <div class="drop" id="drop">
+      <h2>Watch a drive again</h2>
+      <p>Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here or click <strong>Open drive</strong>.</p>
+      <p class="muted">You'll see the car on a 3D map of the terrain, turning, pitching and rolling as it did; its wheels and xDrive at work in an X-ray view; lap times, charts of every value, and a g-g circle. Export it for Google Earth or a spreadsheet.</p>
+      <div class="row center">
+        <label class="file-btn">Open drive…<input id="open2" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
+        <button id="sample2" class="secondary">Try the sample drive</button>
+      </div>
+      <p class="muted small">The sample is the app's simulator: an X1 xDrive18d around Mount Panorama, Bathurst, from a standing start. The file is read in this browser; nothing is uploaded. The map's imagery and terrain come from Esri, OpenTopoMap, OpenStreetMap and AWS's open terrain tiles.</p>
+      <p id="load-error" class="err" hidden></p>
+    </div>
+  </section>
+
+  <main id="player" class="player" hidden>
+    <section class="stage">
+      <div id="map" class="map"></div>
+      <div class="hud" id="hud" aria-live="off">
+        <div class="hud-speed"><span id="hud-speed">0</span><small>km/h</small></div>
+        <div class="hud-grid">
+          <span>RPM</span><strong id="hud-rpm">—</strong>
+          <span>Pedal</span><strong id="hud-pedal">—</strong>
+          <span>Torque</span><strong id="hud-torque">—</strong>
+          <span id="hud-xdrive-label">Rear axle</span><strong id="hud-xdrive">—</strong>
+          <span>Height</span><strong id="hud-height">—</strong>
+        </div>
+        <div class="hud-lap" id="hud-lap" hidden>
+          <span id="hud-lap-n">Lap</span><strong id="hud-lap-time">0:00.0</strong>
+          <span id="hud-delta" class="delta"></span>
+        </div>
+      </div>
+      <div class="map-tools">
+        <div class="seg" role="group" aria-label="Camera">
+          <button data-mode="chase" class="on" title="Behind the car (C)">Chase</button>
+          <button data-mode="top" title="Above the car, north up (T)">Above</button>
+          <button data-mode="free" title="Leave the camera where you put it (F)">Free</button>
+          <button data-mode="fit" title="The whole drive (W)">Whole drive</button>
+        </div>
+        <label>Map <select id="basemap"></select></label>
+        <label>Colour <select id="colour-by"></select></label>
+        <label title="Exaggerate the terrain's height">Terrain <input id="exaggeration" type="range" min="1" max="3" step="0.25" value="1"><span id="exaggeration-value">1×</span></label>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="car-panel">
+        <div id="car-view" class="car-view"></div>
+        <label class="xray"><input type="checkbox" id="xray" checked> X-ray</label>
+        <div class="car-caption muted small" id="car-caption"></div>
+      </div>
+      <div class="instruments">
+        <canvas id="incline" aria-label="Pitch and roll"></canvas>
+        <canvas id="gg" aria-label="g-g circle"></canvas>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="values" aria-selected="true">Values</button>
+        <button role="tab" data-tab="laps" aria-selected="false">Laps</button>
+        <button role="tab" data-tab="info" aria-selected="false">Drive</button>
+      </div>
+      <div class="tab-body" id="tab-values"><table class="values" id="values"></table></div>
+      <div class="tab-body" id="tab-laps" hidden>
+        <div class="row">
+          <button id="set-line" class="secondary" title="Laps start and finish where the car is now">Start/finish here</button>
+          <button id="auto-line" class="secondary">Find it</button>
+          <button id="no-line" class="secondary">No laps</button>
+        </div>
+        <p class="muted small" id="laps-note"></p>
+        <table class="laps" id="laps"></table>
+      </div>
+      <div class="tab-body" id="tab-info" hidden><dl class="drive-info" id="info"></dl></div>
+    </aside>
+
+    <section class="transport">
+      <div class="row controls">
+        <button id="back" class="secondary icon" title="Back 5 s (←)" aria-label="Back 5 seconds">⏪</button>
+        <button id="play" class="icon play" title="Play or pause (space)" aria-label="Play">▶</button>
+        <button id="fwd" class="secondary icon" title="On 5 s (→)" aria-label="On 5 seconds">⏩</button>
+        <label>Speed <select id="rate">
+          <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option>
+          <option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
+        </select></label>
+        <span class="clock"><strong id="clock">0:00.0</strong> / <span id="duration">0:00</span></span>
+        <span class="spacer"></span>
+        <label>Chart <select id="window">
+          <option value="30">30 s</option><option value="60" selected>1 min</option><option value="180">3 min</option><option value="0">Whole drive</option>
+        </select></label>
+      </div>
+      <canvas id="timeline" class="timeline" aria-label="Timeline: click to jump"></canvas>
+      <div class="chips" id="chips"></div>
+      <canvas id="chart" class="chart" aria-label="Chart of the chosen values: click to jump"></canvas>
+    </section>
+  </main>
+
+  <script type="module" src="/static/replay/replay.js"></script>
+</body>
+</html>
