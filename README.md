@@ -16,11 +16,11 @@ It was developed on an F48 X1 with NBT Evo; other cars should work but haven't a
 
 | Your computer | Download |
 | --- | --- |
-| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.2.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.2.0/BMW-Service-Manager-1.2.0-macOS.zip) |
-| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.2.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.2.0/BMW-Service-Manager-1.2.0-Windows.zip) |
-| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.2.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.2.0/BMW-Service-Manager-1.2.0-Linux.tar.gz) |
+| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.3.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.3.0/BMW-Service-Manager-1.3.0-macOS.zip) |
+| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.3.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.3.0/BMW-Service-Manager-1.3.0-Windows.zip) |
+| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.3.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.3.0/BMW-Service-Manager-1.3.0-Linux.tar.gz) |
 
-This is version 1.2.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
+This is version 1.3.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
 
 ## Start it
 
@@ -57,7 +57,7 @@ how it finds the car. It needs macOS 13 (Ventura) or later.
 
 ### Windows
 
-1. Right-click the downloaded **BMW-Service-Manager-1.2.0-Windows.zip**, choose **Extract All...**,
+1. Right-click the downloaded **BMW-Service-Manager-1.3.0-Windows.zip**, choose **Extract All...**,
    then **Extract**. Use the extracted **BMW Service Manager** folder, not the zip.
 2. Double-click **Try without a car**.
 3. The first time, Windows may say **Windows protected your PC**. Click **More info**, then
@@ -72,7 +72,7 @@ how it finds the car.
 ### Linux
 
 1. Extract the download: right-click it and choose **Extract Here**, or in a terminal
-   `tar xzf BMW-Service-Manager-1.2.0-Linux.tar.gz`.
+   `tar xzf BMW-Service-Manager-1.3.0-Linux.tar.gz`.
 2. Run **try-without-a-car.sh** in the **BMW Service Manager** folder (double-click it and
    choose **Run in Terminal**, or run it from a terminal).
 3. Your web browser shows BMW Service Manager. If it doesn't open by itself, open the address
@@ -131,7 +131,9 @@ see one. The car moves over a 3D map of the terrain, turning, pitching and rolli
 with its wheels and xDrive in an X-ray view, lap times, charts of every value and a g-g circle.
 The car is a 3D model of the drive's own BMW (32 F- and G-series models, chosen by its chassis
 code and painted its colour); the list over it picks another. Drag the edges of the map, chart
-and car view to resize them. **Google Earth (.kml)** and **CSV** export it. The file is read in the browser, not uploaded;
+and car view to resize them. xDrive's own figure is how much torque its clutch is set to carry;
+**xDrive (est.)** works out what it passes, from that and the torque the road took from all four
+wheels. The iPhone's GPS runs a second or two late: the page finds by how much and allows for it. **Google Earth (.kml)** and **CSV** export it. The file is read in the browser, not uploaded;
 the map's imagery and terrain come from the internet (Esri, OpenTopoMap, OpenStreetMap, AWS).
 
 **Light or dark.** Under **Advanced** at the bottom of the page, **Appearance** chooses Light,

@@ -25,6 +25,8 @@ export class CarView {
     this.controls.maxDistance = 16;
     this.controls.maxPolarAngle = Math.PI * 0.62;
     this.controls.update();
+    // Turning the camera needs drawing again too, paused or not.
+    this.controls.addEventListener("change", () => this.onChange?.());
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.8));
     const sun = new THREE.DirectionalLight(0xffffff, 2.0);
     sun.position.set(4, -6, 10);
@@ -60,7 +62,7 @@ export class CarView {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     // Resizing clears the canvas: it needs drawing again, playing or not.
-    this.onResize?.();
+    this.onChange?.();
   }
 
   /** The car: a model from car3d's loadModel, painted by its code, or null for the simple one. */

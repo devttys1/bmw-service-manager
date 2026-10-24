@@ -149,3 +149,92 @@ def test_panes_resize(replay: Page):
     assert abs(width(".side") - (side + 100)) < 3, "kept"
     page.dblclick("#split-side")
     assert abs(width(".side") - side) < 3
+
+
+def test_turning_the_close_up_while_paused(replay: Page):
+    """Dragging the close-up turns its camera and draws it again, paused or not."""
+    page = replay
+    page.click("#sample2")
+    page.wait_for_function("window.replay?.state.drive", timeout=20000)
+    page.click("#play")  # pause
+    page.wait_for_function("window.replay.state.view.car.model && window.replay.state.mapReady", timeout=20000)
+    page.evaluate("""() => {
+        const v = window.replay.state.view;
+        window.renders = 0;
+        const render = v.render.bind(v);
+        v.render = (...a) => { window.renders++; return render(...a); };
+    }""")
+    # Idle while paused: nothing draws it until something changes.
+    page.wait_for_timeout(500)
+    assert page.evaluate("window.renders") == 0
+    before = page.evaluate("window.replay.state.view.camera.position.toArray()")
+    box = page.locator("#car-view canvas").bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x + 40, y + 10)
+    page.mouse.move(x + 80, y + 20)
+    page.mouse.up()
+    page.wait_for_timeout(100)
+    assert page.evaluate("window.replay.state.view.camera.position.toArray()") != before
+    assert page.evaluate("window.renders") > 0, "drawn again while paused"
+
+
+def test_gps_lag_is_taken_off(replay: Page):
+    """An iPhone's GPS gives each fix out late: found against the gyro and the car's speed."""
+    lags = replay.evaluate("""async () => {
+        const m = await import("/static/replay/drivelog.js");
+        const text = await m.readLog(await fetch("/static/sample-drive.bblog.gz"));
+        const late = (s, drop) => {
+            const raw = m.parseLog(text);
+            raw.gps.forEach((g) => { g[0] += s; });
+            if (drop === "car") raw.car = [];
+            if (drop === "motion") raw.motion = [];
+            return m.processLog(raw).gpsLag;
+        };
+        return [late(0), late(1.9), late(1.9, "car"), late(1.2, "motion"), late(0, "motion")];
+    }""")
+    assert lags == [0, 1.9, 1.9, 1.2, 0], lags
+
+
+def test_old_iphone_logs_turn_the_acceleration_round(replay: Page):
+    """A real iPhone's log from before "accel": "car" has Core Motion's acceleration, the other way round."""
+    signs = replay.evaluate("""async () => {
+        const m = await import("/static/replay/drivelog.js");
+        const text = await m.readLog(await fetch("/static/sample-drive.bblog.gz"));
+        const lines = text.split("\\n"), header = JSON.parse(lines[0]);
+        const as = (h) => m.parseLog([JSON.stringify({ ...header, ...h }), ...lines.slice(1)].join("\\n"));
+        const sample = m.parseLog(text), old = as({ simulated: false }), fixed = as({ simulated: false, accel: "car" });
+        const k = sample.motion.findIndex((r) => Math.abs(r[4]) > 0.01);
+        return [old.motion[k][4] / sample.motion[k][4], fixed.motion[k][4] / sample.motion[k][4],
+                old.end.forward[0] / sample.end.forward[0], old.motion[k][1] / sample.motion[k][1]];
+    }""")
+    assert signs == [-1, 1, -1, 1]
+
+
+def test_xdrive_torque_is_worked_out(replay: Page):
+    """xDrive passes the smaller of what its clutch is set to carry and its axle's share of the road's torque."""
+    result = replay.evaluate("""async () => {
+        const m = await import("/static/replay/drivelog.js");
+        const text = await m.readLog(await fetch("/static/sample-drive.bblog.gz"));
+        const run = (fixed) => {
+            const raw = m.parseLog(text);
+            if (fixed) raw.car.forEach(([, v]) => { if (v["Rear axle"] !== undefined) v["Rear axle"] = fixed; });
+            const d = m.processLog(raw);
+            const set = d.byName["Rear axle"].values, est = d.byName["xDrive (est.)"].values, all = d.byName["All wheels (est.)"].values;
+            let kept = 0, n = 0, over = 0;
+            for (let i = 0; i < d.n; i++) {
+                if (!(set[i] > 50) || !Number.isFinite(est[i])) continue;
+                n++; kept += est[i] / set[i];
+                if (est[i] > set[i] + 0.5 || est[i] > Math.max(0, all[i]) * 0.8 + 0.5) over++;
+            }
+            return { kept: kept / n, over, chassis: d.figures.chassis };
+        };
+        return [run(), run(3000)];
+    }""")
+    real, high = result
+    assert real["chassis"] == "F48"
+    # The simulator's figure is what its clutch passes: the estimate keeps it.
+    assert real["kept"] > 0.95 and real["over"] == 0, real
+    # Set to 3,000 Nm, far more than the road could take: the axle's share of it is what passes.
+    assert high["kept"] < 0.2 and high["over"] == 0, high

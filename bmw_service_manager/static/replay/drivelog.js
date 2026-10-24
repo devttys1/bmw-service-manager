@@ -63,6 +63,9 @@ export function parseLog(text) {
     header, motion: [], gps: [], baro: [], car: [], marks: [], notes: [], end: null,
     channels: [], // every channel, in the order first seen
   };
+  // The motion's acceleration is the way the car accelerates ("accel": "car"); a real iPhone's
+  // logs without it (builds up to 14) have Core Motion's, which points the other way.
+  const flip = !header.simulated && header.accel !== "car" ? -1 : 1;
   let current = []; // the latest channel list: indexes into raw.channels
   const byName = new Map();
   for (let i = 1; i < lines.length; i++) {
@@ -72,7 +75,7 @@ export function parseLog(text) {
     try { row = JSON.parse(line); } catch { continue; }
     const t = row.t;
     if (typeof t !== "number") continue;
-    if (row.m) raw.motion.push([t, ...row.m]);
+    if (row.m) { const m = row.m; raw.motion.push([t, m[0], m[1], m[2], flip * m[3], flip * m[4], flip * m[5], m[6], m[7], m[8]]); }
     else if (row.gps) raw.gps.push([t, ...row.gps]);
     else if (row.baro) raw.baro.push([t, ...row.baro]);
     else if (row.car) {
@@ -86,7 +89,7 @@ export function parseLog(text) {
       });
     } else if (row.mark !== undefined) raw.marks.push({ t, label: row.mark });
     else if (row.note !== undefined) raw.notes.push({ t, text: row.note });
-    else if (row.end) raw.end = { t, ...row.end };
+    else if (row.end) raw.end = { t, ...row.end, forward: row.end.forward?.map((v) => flip * v) };
   }
   return raw;
 }
@@ -147,15 +150,18 @@ export function solveMount(raw, fixes) {
     const [t0, v0] = [fixes[k - 1][0], fixes[k - 1][6]], [t1, v1] = [fixes[k][0], fixes[k][6]];
     if (v0 < 0 || v1 < 0 || t1 - t0 < 0.3 || t1 - t0 > 3) continue;
     while (mi < motion.length && motion[mi][0] <= t0) mi++;
-    let h = [0, 0, 0], n = 0;
+    let h = [0, 0, 0], n = 0, turn = 0;
     for (let j = mi; j < motion.length && motion[j][0] <= t1; j++) {
       const a = reject([motion[j][4], motion[j][5], motion[j][6]], up);
       h = [h[0] + a[0], h[1] + a[1], h[2] + a[2]]; n++;
+      turn += dot([motion[j][7], motion[j][8], motion[j][9]], up);
     }
     if (!n) continue;
     h = scale(h, 1 / n);
     const along = (v1 - v0) / (t1 - t0) / G;
     if (Math.abs(along) < 0.05 || Math.max(v0, v1) < 2) continue;
+    // Not while cornering: braking into bends would pull forward towards their side.
+    if (Math.abs(turn / n) * (v0 + v1) / 2 / G > 0.05) continue;
     acc = [acc[0] + h[0] * along, acc[1] + h[1] * along, acc[2] + h[2] * along];
     weight += along * along; spread += dot(h, h); count++;
   }
@@ -174,6 +180,130 @@ export function solveMount(raw, fixes) {
   return { up, forward, left: cross(up, forward), upFrom, forwardFrom, confidence };
 }
 
+/**
+ * How late the GPS reports each fix (s): an iPhone's GPS smooths its fixes and gives them out
+ * about 2 s after the car was there (1.9 s in the X1). Found from how its speed changes against
+ * the car's own wheel speed, and how its course turns against the gyro (about `up`), over each
+ * fix's interval at lags of 0 to 3 s: the lag that fits best, or 0 if neither fits well.
+ */
+export function findGpsLag(raw, fixes, up) {
+  // Running integrals, so a value's change over any interval is a subtraction.
+  const integral = (pts) => {
+    const ts = pts.map((p) => p[0]), sum = new Float64Array(pts.length);
+    for (let k = 1; k < pts.length; k++) sum[k] = sum[k - 1] + (pts[k][1] + pts[k - 1][1]) / 2 * (ts[k] - ts[k - 1]);
+    return (t) => {
+      const k = before(ts, t);
+      if (k < 0 || k >= pts.length - 1) return NaN;
+      const s = (t - ts[k]) / (ts[k + 1] - ts[k]);
+      return sum[k] + (pts[k][1] + (pts[k + 1][1] - pts[k][1]) * s / 2) * s * (ts[k + 1] - ts[k]);
+    };
+  };
+  const tries = [];
+  // The car's speed (m/s); its change over a fix's interval against the GPS's.
+  const wheels = raw.car.filter(([, v]) => Number.isFinite(v.Speed)).map(([t, v]) => [t, v.Speed / 3.6]);
+  if (wheels.length > 100) {
+    const wt = wheels.map((w) => w[0]);
+    const speed = (t) => {
+      const k = before(wt, t);
+      if (k < 0 || k >= wheels.length - 1 || wt[k + 1] - wt[k] > 2) return NaN;
+      return wheels[k][1] + (wheels[k + 1][1] - wheels[k][1]) * (t - wt[k]) / (wt[k + 1] - wt[k]);
+    };
+    tries.push({ ok: (a, b) => a[6] >= 0 && b[6] >= 0 && Math.max(a[6], b[6]) > 1, gps: (a, b) => b[6] - a[6], other: (t0, t1) => speed(t1) - speed(t0) });
+  }
+  // The gyro's turn about up (° left +) against the course's (compass, clockwise +).
+  if (raw.motion.length > 100) {
+    const turned = integral(raw.motion.map((m) => [m[0], (up[0] * m[7] + up[1] * m[8] + up[2] * m[9]) / DEG]));
+    tries.push({ ok: (a, b) => a[8] >= 0 && b[8] >= 0 && Math.min(a[6], b[6]) > 3, gps: (a, b) => -wrap180(b[8] - a[8]), other: (t0, t1) => turned(t1) - turned(t0) });
+  }
+  let best = { lag: 0, fit: 0 };
+  for (const { ok, gps, other } of tries) {
+    const pairs = [];
+    for (let k = 1; k < fixes.length; k++) {
+      const a = fixes[k - 1], b = fixes[k], dt = b[0] - a[0];
+      if (dt >= 0.3 && dt <= 1.5 && ok(a, b)) pairs.push([a[0], b[0], gps(a, b)]);
+    }
+    if (pairs.length < 30) continue;
+    for (let lag = 0; lag <= 3.001; lag += 0.05) {
+      let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+      for (const [t0, t1, x] of pairs) {
+        const y = other(t0 - lag, t1 - lag);
+        if (!Number.isFinite(y)) continue;
+        n++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+      }
+      if (n < 30) continue;
+      const fit = (n * sxy - sx * sy) / Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+      if (fit > best.fit) best = { lag, fit };
+    }
+  }
+  return best.fit > 0.8 ? Math.round(best.lag * 100) / 100 : 0;
+}
+
+// MARK: xDrive's torque
+
+/**
+ * What the estimate needs of a car: kerb weight with a driver (kg), rolling radius (m),
+ * wheelbase (m), the share of its weight on the front axle, its centre of gravity's height (m)
+ * and its drag area (m²). Makers' figures, rounded; `rear` and `front` (by xDrive's kind) stand
+ * in for cars not listed.
+ */
+export const CAR_FIGURES = {
+  F48: { mass: 1700, radius: 0.341, wheelbase: 2.67, front: 0.58, cg: 0.6, cda: 0.74 }, // X1 xDrive18d
+  F15: { mass: 2200, radius: 0.37, wheelbase: 2.933, front: 0.5, cg: 0.66, cda: 0.98 }, // X5 xDrive40d
+  rear: { mass: 1650, radius: 0.34, wheelbase: 2.67, front: 0.6, cg: 0.58, cda: 0.72 },
+  front: { mass: 1900, radius: 0.35, wheelbase: 2.9, front: 0.5, cg: 0.6, cda: 0.8 },
+};
+
+/** The figures for the log's car: by its chassis code, else by its kind of xDrive. */
+export function carFigures(car = {}, xdrive = car.xdrive) {
+  const code = car.chassis || /\(([A-Z]\d{2})/.exec(car.model || "")?.[1];
+  const known = CAR_FIGURES[code];
+  return known ? { ...known, chassis: code } : { ...CAR_FIGURES[xdrive === "front" ? "front" : "rear"], chassis: null };
+}
+
+/**
+ * The torque xDrive passes, worked out. The axle values (Rear axle, Front axle) are what the
+ * clutch is set to carry: a slipping clutch passes just that, but a locked one only what that
+ * axle's tyres take, its share of the torque the road takes from all four wheels. So it passes
+ * the smaller of the two. The road's torque: the car's weight × (its acceleration from the wheels'
+ * speed, and the hill from the height over distance), with rolling and air resistance, at the
+ * rolling radius; no more than the engine's power could give at that wheel speed. The share: the
+ * weight on the axle, which moves back speeding up and climbing. Both are at the wheels, as the
+ * clutch's figure appears to be (its pull-aways only fit that).
+ * Returns { wheels, xdrive } (Float32Arrays on the timeline, NaN where not known), or null.
+ */
+export function estimateXdrive(drive, figures) {
+  const axle = drive.byName["Rear axle"] || drive.byName["Front axle"];
+  const speed = drive.byName.Speed;
+  if (!axle || !speed) return null;
+  const toRear = axle.name === "Rear axle";
+  const { mass, radius, wheelbase, front, cg, cda } = figures;
+  const n = drive.n, R = drive.rate, sv = speed.values;
+  const torque = drive.byName.Torque?.values, rpm = drive.byName.RPM?.values;
+  const wheels = new Float32Array(n).fill(NaN), xdrive = new Float32Array(n).fill(NaN);
+  const half = Math.round(R / 2), hill = Math.round(2.5 * R);
+  for (let i = 0; i < n; i++) {
+    const v = sv[i] / 3.6;
+    const a0 = sv[Math.max(0, i - half)], a1 = sv[Math.min(n - 1, i + half)];
+    if (!Number.isFinite(v) || !Number.isFinite(a0) || !Number.isFinite(a1)) continue;
+    const accel = (a1 - a0) / 3.6 / ((Math.min(n - 1, i + half) - Math.max(0, i - half)) / R);
+    const j0 = Math.max(0, i - hill), j1 = Math.min(n - 1, i + hill), run = drive.dist[j1] - drive.dist[j0];
+    const grade = run > 5 ? clamp((drive.alt[j1] - drive.alt[j0]) / run, -0.35, 0.35) : 0;
+    const moving = v > 0.3 || Math.abs(accel) > 0.05;
+    let force = mass * (1.04 * accel + G * grade) + (moving ? 0.012 * mass * G + 0.6 * cda * v * v : 0);
+    let total = force * radius;
+    // No more than the engine's power through the gears at this wheel speed.
+    if (torque && rpm && v > 2 && Number.isFinite(torque[i]) && Number.isFinite(rpm[i])) {
+      total = Math.min(total, Math.max(0, torque[i]) * rpm[i] * 2 * Math.PI / 60 / (v / radius));
+    }
+    wheels[i] = total;
+    const rearShare = clamp(1 - front + (accel / G + grade) * cg / wheelbase, 0.2, 0.8);
+    const share = toRear ? rearShare : 1 - rearShare;
+    const set = axle.values[i];
+    if (Number.isFinite(set)) xdrive[i] = clamp(Math.min(set, share * total), 0, Math.max(0, set));
+  }
+  return { wheels, xdrive, axle: axle.name };
+}
+
 /** A channel the player adds (from the iPhone), drawn and charted like the car's. */
 function derived(name, unit, digits, min, max, values) {
   return { name, unit, group: "iPhone", digits, min, max, values, derived: true };
@@ -186,8 +316,11 @@ function derived(name, unit, digits, min, max, values) {
  */
 export function processLog(raw) {
   const { header } = raw;
-  const fixes = raw.gps.filter((g) => g[4] >= 0 && g[4] <= 50 && Math.abs(g[1]) <= 90 && Math.abs(g[2]) <= 180)
+  let fixes = raw.gps.filter((g) => g[4] >= 0 && g[4] <= 50 && Math.abs(g[1]) <= 90 && Math.abs(g[2]) <= 180)
     .sort((a, b) => a[0] - b[0]);
+  // Each fix at when the car was there, so the map keeps time with the gyro and the car's values.
+  const gpsLag = findGpsLag(raw, fixes, solveMount(raw, fixes).up);
+  if (gpsLag) fixes = fixes.map((f) => [f[0] - gpsLag, ...f.slice(1)]);
   const lastT = Math.max(
     raw.motion.at(-1)?.[0] ?? 0, raw.gps.at(-1)?.[0] ?? 0, raw.car.at(-1)?.[0] ?? 0, raw.end?.t ?? 0);
   const n = Math.max(2, Math.floor(lastT * RATE) + 1);
@@ -362,9 +495,21 @@ export function processLog(raw) {
     );
   }
 
-  const byName = Object.fromEntries([...channels, ...phone].map((c) => [c.name, c]));
+  let byName = Object.fromEntries([...channels, ...phone].map((c) => [c.name, c]));
+  // xDrive's torque, worked out from the clutch's figure and the road's.
+  const figures = carFigures(header.car || {});
+  const est = estimateXdrive({ n, rate: RATE, byName, dist: D, alt: A }, figures);
+  if (est) {
+    const group = byName[est.axle].group;
+    channels.push(
+      { name: "All wheels (est.)", unit: "Nm", group, digits: 0, min: 0, max: 3000, values: est.wheels, derived: true },
+      { name: "xDrive (est.)", unit: "Nm", group, digits: 0, min: 0, max: 1000, values: est.xdrive, derived: true },
+    );
+    byName = Object.fromEntries([...channels, ...phone].map((c) => [c.name, c]));
+  }
   return {
-    header, raw, duration, n, rate: RATE, origin, proj, mount, hasMotion, hasGps: fixes.length > 1,
+    figures,
+    header, raw, duration, n, rate: RATE, origin, proj, mount, gpsLag, hasMotion, hasGps: fixes.length > 1,
     t: T, x: X, y: Y, lat: LAT, lon: LON, alt: A, speed: V, heading: H, pitch: P, roll: R,
     longG: LG, latG: AG, yaw: W, dist: D,
     channels, phone, byName,

@@ -12,8 +12,8 @@ import { Timeline, StripChart, drawGG, drawIncline } from "./charts.js";
 const $ = (s) => document.querySelector(s);
 const state = { mode: "chase", drive: null, t: 0, playing: false, rate: 1, laps: [], line: null, ref: null, map: null, view: null, dirty: true };
 // What the chart shows first: the driving values this drive has.
-const DEFAULT_CHART = ["GPS speed", "Speed", "RPM", "Pedal", "Rear axle", "Front axle", "Sideways g", "Pitch", "Roll", "Height"];
-const COLOUR_BY = ["GPS speed", "Height", "Sideways g", "Forward g", "Pedal", "Rear axle", "Front axle", "Boost", "RPM", "Pitch", "Roll"];
+const DEFAULT_CHART = ["GPS speed", "Speed", "RPM", "Pedal", "Rear axle", "Front axle", "xDrive (est.)", "Sideways g", "Pitch", "Roll", "Height"];
+const COLOUR_BY = ["GPS speed", "Height", "Sideways g", "Forward g", "Pedal", "Rear axle", "Front axle", "xDrive (est.)", "Boost", "RPM", "Pitch", "Roll"];
 
 // MARK: opening a drive
 
@@ -47,9 +47,11 @@ function show(drive, label) {
   const car = drive.header.car || {};
   const xdrive = car.xdrive || (drive.byName["Rear axle"] ? "rear" : drive.byName["Front axle"] ? "front" : "none");
   const driven = car.driven || (xdrive === "front" ? "rear" : "front");
-  state.secondary = xdrive === "front" ? "Front axle" : "Rear axle";
+  // What xDrive passes, worked out, where the log has the clutch's figure; else that figure.
+  const axle = xdrive === "front" ? "Front axle" : "Rear axle";
+  state.secondary = drive.byName["xDrive (est.)"] ? "xDrive (est.)" : axle;
   state.xdrive = xdrive;
-  $("#hud-xdrive-label").textContent = xdrive === "front" ? "Front axle" : xdrive === "rear" ? "Rear axle" : "xDrive";
+  $("#hud-xdrive-label").textContent = drive.byName["xDrive (est.)"] ? `${axle} (est.)` : xdrive === "none" ? "xDrive" : axle;
 
   // A new map and close-up for each drive: its drivetrain may differ.
   if (state.map) state.map.map.remove();
@@ -58,7 +60,7 @@ function show(drive, label) {
   state.mapReady = false;
   $("#car-view").replaceChildren();
   state.view = new CarView($("#car-view"), { driven, xdrive });
-  state.view.onResize = () => { state.dirty = true; };
+  state.view.onChange = () => { state.dirty = true; };
   state.view.setXray($("#xray").checked);
   state.wheelbase = SIZE.wheelbase;
   $("#car-credit").hidden = true;
@@ -365,8 +367,9 @@ function fillInfo() {
     ["Paint", car.paint ? `${PAINTS[car.paint]?.[0] || "code"} (${car.paint})` : ""],
     ["xDrive", { rear: "to the rear axle (a clutch)", front: "to the front axle (a transfer case)", none: "none" }[state.xdrive] || "—"],
     ["Car values", d.channels.length ? `${d.channels.length}, ${d.raw.car.length.toLocaleString()} readings` : "none"],
-    ["GPS fixes", d.raw.gps.length.toLocaleString()], ["Motion", d.hasMotion ? `${d.raw.motion.length.toLocaleString()} readings` : "none"],
+    ["GPS fixes", `${d.raw.gps.length.toLocaleString()}${d.gpsLag ? `, ${d.gpsLag.toFixed(1)} s late (taken off)` : ""}`], ["Motion", d.hasMotion ? `${d.raw.motion.length.toLocaleString()} readings` : "none"],
     ["Up", upFrom], ["Forward", fwdFrom],
+    ...(d.byName["xDrive (est.)"] ? [["xDrive (est.)", `from ${d.figures.chassis ? `the ${d.figures.chassis}'s` : "typical"} figures: ${d.figures.mass.toLocaleString()} kg, ${Math.round(d.figures.front * 100)}% on the front axle, ${Math.round(d.figures.radius * 1000)} mm wheels`]] : []),
     ["Recorded by", `Boostbook ${h.app || ""}${h.simulated ? " (simulator)" : ""}`],
     ...d.notes.map((n) => [formatTime(n.t), n.text]),
   ];
