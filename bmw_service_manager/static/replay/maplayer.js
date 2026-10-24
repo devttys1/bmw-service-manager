@@ -5,6 +5,7 @@
 // for the ground, and AWS's open terrain tiles (Mapzen's terrarium heights) for its shape.
 
 import * as THREE from "three";
+import { RoomEnvironment } from "../vendor/RoomEnvironment.js";
 import { buildCar } from "./car3d.js";
 
 const maplibregl = window.maplibregl;
@@ -53,6 +54,16 @@ class CarLayer {
     this.renderer.autoClear = false;
   }
 
+  /** The car: a model from car3d's loadModel, painted by its code, or null for the simple one. */
+  setModel(model, paintCode = null) {
+    this.options = { ...this.options, model, paintCode };
+    if (!this.scene) return;
+    this.scene.remove(this.car.root);
+    this.car = buildCar(this.options);
+    this.scene.add(this.car.root);
+    this.map.triggerRepaint();
+  }
+
   render(gl, matrix) {
     const p = this.pose;
     if (!p) return;
@@ -70,6 +81,12 @@ class CarLayer {
       .multiply(new THREE.Matrix4().makeRotationX(p.roll * Math.PI / 180));
     this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix).multiply(m);
     this.renderer.resetState();
+    // Made here rather than in onAdd: it draws, and MapLibre expects that only while rendering.
+    if (!this.scene.environment) {
+      this.scene.environment = new THREE.PMREMGenerator(this.renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+      this.scene.environmentIntensity = 0.7;
+      this.renderer.resetState();
+    }
     this.renderer.render(this.scene, this.camera);
   }
 }

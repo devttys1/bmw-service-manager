@@ -3,11 +3,14 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "../vendor/OrbitControls.js";
-import { buildCar } from "./car3d.js";
+import { RoomEnvironment } from "../vendor/RoomEnvironment.js";
+import { buildCar, silhouettes } from "./car3d.js";
 
 export class CarView {
   constructor(container, { driven = "front", xdrive = "rear" } = {}) {
     this.container = container;
+    this.options = { driven, xdrive };
+    this.xray = true;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio || 1);
     container.appendChild(this.renderer.domElement);
@@ -26,6 +29,9 @@ export class CarView {
     const sun = new THREE.DirectionalLight(0xffffff, 2.0);
     sun.position.set(4, -6, 10);
     this.scene.add(sun);
+    // Something for paint, chrome and glass to reflect.
+    this.scene.environment = new THREE.PMREMGenerator(this.renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.7;
 
     // The world tilts (the road's slope and the body's lean); the camera and horizon don't.
     this.world = new THREE.Group();
@@ -39,18 +45,8 @@ export class CarView {
     grid.position.z = 0.002;
     this.world.add(grid);
     this.gridLines = grid;
-    this.car = buildCar({ driven, xdrive, xray: true, arrows: true, paint: 0x8f9cab });
-    this.world.add(this.car.root);
-
-    // Labels over the drivetrain, placed each frame.
     this.labels = {};
-    for (const key of ["engine", "primary", "secondary"]) {
-      if (!this.car.anchors[key]) continue;
-      const el = document.createElement("div");
-      el.className = "car-label";
-      container.appendChild(el);
-      this.labels[key] = el;
-    }
+    this.setModel(null);
     this.resize();
     new ResizeObserver(() => this.resize()).observe(container);
   }
@@ -63,9 +59,31 @@ export class CarView {
     this.renderer.domElement.style.height = `${h}px`;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // Resizing clears the canvas: it needs drawing again, playing or not.
+    this.onResize?.();
   }
 
-  setXray(on) { this.car.setXray(on); for (const el of Object.values(this.labels)) el.hidden = !on; }
+  /** The car: a model from car3d's loadModel, painted by its code, or null for the simple one. */
+  setModel(model, paintCode = null) {
+    if (this.car) this.world.remove(this.car.root);
+    this.car = buildCar({ ...this.options, model, paintCode, xray: this.xray, arrows: true, paint: 0x8f9cab });
+    this.world.add(this.car.root);
+    // Its outline, for the pitch and roll dials.
+    this.shapes = silhouettes(this.renderer, this.car);
+    // Labels over the drivetrain, placed each frame.
+    for (const el of Object.values(this.labels)) el.remove();
+    this.labels = {};
+    for (const key of ["engine", "primary", "secondary"]) {
+      if (!this.car.anchors[key]) continue;
+      const el = document.createElement("div");
+      el.className = "car-label";
+      el.hidden = !this.xray;
+      this.container.appendChild(el);
+      this.labels[key] = el;
+    }
+  }
+
+  setXray(on) { this.xray = on; this.car.setXray(on); for (const el of Object.values(this.labels)) el.hidden = !on; }
 
   /** pose: pitch and roll (°); state: as car3d's update, plus label texts. */
   render(pose, state, texts = {}) {

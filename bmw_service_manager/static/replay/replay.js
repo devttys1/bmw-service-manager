@@ -6,7 +6,7 @@ import {
 } from "./drivelog.js";
 import { ReplayMap, BASEMAPS } from "./maplayer.js";
 import { CarView } from "./carview.js";
-import { WHEELBASE } from "./car3d.js";
+import { SIZE, models, modelFor, chassisOf, loadModel, PAINTS } from "./car3d.js";
 import { Timeline, StripChart, drawGG, drawIncline } from "./charts.js";
 
 const $ = (s) => document.querySelector(s);
@@ -58,10 +58,15 @@ function show(drive, label) {
   state.mapReady = false;
   $("#car-view").replaceChildren();
   state.view = new CarView($("#car-view"), { driven, xdrive });
+  state.view.onResize = () => { state.dirty = true; };
   state.view.setXray($("#xray").checked);
+  state.wheelbase = SIZE.wheelbase;
+  $("#car-credit").hidden = true;
   $("#car-caption").textContent = xdrive === "none"
     ? `${car.model || "The car"}: drive to the ${driven} wheels.`
     : `${car.model || "The car"}: the ${driven} axle always drives; xDrive's clutch sends torque to the ${xdrive === "rear" ? "rear" : "front"} axle. Drag to turn.`;
+  // The car's own model, when there is one (drawn simply until it loads), unless another is picked.
+  chooseCar("auto");
 
   state.line = findStartLine(drive);
   setLaps();
@@ -79,6 +84,112 @@ function show(drive, label) {
     state.dirty = true;
   });
   state.dirty = true;
+}
+
+// MARK: the car
+
+const thumb = (file) => `/static/cars/thumbs/${file ? file.replace(/\.glb$/, "") : "simple"}.webp`;
+const shortName = (entry) => (entry ? `${entry.series} ${entry.chassis[0]}` : "Simple car");
+
+/** Draws the drive's car as `choice`: "auto" (the log's car, its nearest model, else the simple
+ *  one), "simple", or a model's file. */
+async function chooseCar(choice) {
+  const drive = state.drive, car = drive.header.car || {};
+  state.carChoice = choice;
+  const list = await models(), logs = await modelFor(car);
+  const entry = choice === "auto" ? logs : list.find((m) => m.file === choice) || null;
+  if (state.drive !== drive || state.carChoice !== choice) return;
+  $("#car-pick-btn img").src = thumb(entry?.file);
+  $("#car-pick-btn span").textContent = shortName(entry);
+  fillCarList(list, logs);
+  let model = null;
+  try { model = entry && await loadModel(entry); } catch (e) { console.warn("The car's model didn't load; drawing it simply.", e); }
+  if (state.drive !== drive || state.carChoice !== choice) return;
+  state.view.setModel(model, car.paint);
+  state.map.carLayer.setModel(model, car.paint);
+  state.wheelbase = model ? model.info.wheelbase : SIZE.wheelbase;
+  state.view.setXray($("#xray").checked);
+  state.dirty = true;
+  $("#car-credit").hidden = !model;
+  if (!model) return;
+  // Credit, as its licence asks: the work, its author and the licence.
+  const i = model.info;
+  const link = Object.assign(document.createElement("a"), { href: i.source, target: "_blank", rel: "noopener", textContent: i.title });
+  $("#car-credit").replaceChildren(link, ` by ${i.author}, ${i.license}`,
+    ...(choice !== "auto" || entry.exact ? [] : [document.createElement("br"), `the nearest there is to the ${chassisOf(car) || car.model}`]));
+}
+
+/** The list to pick from: the log's car (as `logs`, the model it picks) first, then every model
+ *  and the simple car, each with its picture. */
+function fillCarList(list, logs) {
+  const car = state.drive.header.car || {};
+  const item = (value, file, title, note) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.tabIndex = -1;
+    li.dataset.value = value;
+    li.setAttribute("aria-selected", value === state.carChoice);
+    const img = Object.assign(document.createElement("img"), { src: thumb(file), alt: "", loading: "lazy", width: 84, height: 42 });
+    li.append(img, Object.assign(document.createElement("strong"), { textContent: title }), Object.assign(document.createElement("small"), { textContent: note }));
+    return li;
+  };
+  const fromLog = item("auto", logs?.file, "The drive's car", `${car.model || chassisOf(car) || "Not in the log"}: ${logs ? shortName(logs) : "drawn simply"}`);
+  fromLog.classList.add("auto");
+  $("#car-list").replaceChildren(fromLog,
+    ...list.map((m) => item(m.file, m.file, m.title, [m.chassis.join(", "), m.near.length ? `like ${m.near.join(", ")}` : ""].filter(Boolean).join(" · "))),
+    item("simple", null, "Simple car", "A plain SUV, X1-sized"));
+}
+
+function openCarList(open = true) {
+  const list = $("#car-list");
+  list.hidden = !open;
+  $("#car-pick-btn").setAttribute("aria-expanded", open);
+  if (open) (list.querySelector('[aria-selected="true"]') || list.firstElementChild)?.focus();
+}
+
+function pickCar(li) {
+  openCarList(false);
+  $("#car-pick-btn").focus();
+  if (li && li.dataset.value !== state.carChoice) chooseCar(li.dataset.value);
+}
+
+// MARK: resizing
+
+/** The side panel's width, the chart's height and the car view's height, dragged and kept. */
+const LAYOUT = { "--side-w": [370, 260, () => innerWidth - 320], "--chart-h": [170, 50, () => innerHeight * 0.6], "--car-h": [250, 150, () => innerHeight * 0.7] };
+let layout = {};
+try { layout = JSON.parse(localStorage.getItem("replayLayout")) || {}; } catch { /* storage blocked */ }
+
+function setLayout(name, px) {
+  const [usual, lo, hi] = LAYOUT[name];
+  if (px == null) delete layout[name];
+  else layout[name] = Math.round(Math.max(lo, Math.min(hi(), px)));
+  $("#player").style.setProperty(name, `${layout[name] ?? usual}px`);
+  state.map?.map.resize();
+  state.dirty = true;
+}
+
+/** Dragging `handle` sets `name` from where the pointer is: `size(event, start)`. */
+function splitter(handle, name, rows, size) {
+  let start = null;
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    start = { x: e.clientX, y: e.clientY, px: layout[name] ?? LAYOUT[name][0] };
+    handle.classList.add("dragging");
+    document.body.classList.add("resizing", rows ? "rows" : "cols");
+  });
+  handle.addEventListener("pointermove", (e) => { if (start) setLayout(name, size(e, start)); });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    handle.classList.remove("dragging");
+    document.body.classList.remove("resizing", "rows", "cols");
+    try { localStorage.setItem("replayLayout", JSON.stringify(layout)); } catch { /* storage blocked */ }
+  };
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+  handle.addEventListener("dblclick", () => { setLayout(name, null); end(); try { localStorage.setItem("replayLayout", JSON.stringify(layout)); } catch { /* storage blocked */ } });
 }
 
 function setLaps() {
@@ -141,7 +252,7 @@ function carState(t, dt) {
   let yaw = d.hasMotion ? at(d, d.yaw, t) : value(d, "Yaw rate", t);
   if (!Number.isFinite(yaw)) yaw = 0;
   const v = speed / 3.6;
-  const steer = v > 3 ? Math.max(-35, Math.min(35, Math.atan((WHEELBASE * yaw * Math.PI / 180) / v) * 180 / Math.PI)) : 0;
+  const steer = v > 3 ? Math.max(-35, Math.min(35, Math.atan((state.wheelbase * yaw * Math.PI / 180) / v) * 180 / Math.PI)) : 0;
   const longG = d.hasMotion ? at(d, d.longG, t) : value(d, "Longitudinal", t);
   const pedal = value(d, "Pedal", t);
   const braking = Number.isFinite(longG) && longG < -0.12 && !(pedal > 5) ? Math.min(1, (-longG - 0.1) / 0.6) : 0;
@@ -169,7 +280,7 @@ function draw(dt) {
     primary: Number.isFinite(cs.speed) ? `${Math.round(cs.speed)} km/h` : "",
     secondary: Number.isFinite(second) ? `xDrive ${Math.round(second)} Nm` : "",
   });
-  drawIncline($("#incline"), pose.pitch, pose.roll);
+  drawIncline($("#incline"), pose.pitch, pose.roll, state.view.shapes);
   drawGG($("#gg"), d, t);
   timeline.draw(t);
   chart.draw(t);
@@ -251,6 +362,7 @@ function fillInfo() {
     ["Height", `${Math.round(Math.min(...d.alt))}–${Math.round(Math.max(...d.alt))} m`],
     ...(d.hasMotion ? [["Most pitch", `${maxPitch.toFixed(1)}°`], ["Most roll", `${maxRoll.toFixed(1)}°`], ["Cornering", `${maxLat.toFixed(2)} g`]] : []),
     ["Car", [car.model, car.name].filter(Boolean).join(", ") || "—"],
+    ["Paint", car.paint ? `${PAINTS[car.paint]?.[0] || "code"} (${car.paint})` : ""],
     ["xDrive", { rear: "to the rear axle (a clutch)", front: "to the front axle (a transfer case)", none: "none" }[state.xdrive] || "—"],
     ["Car values", d.channels.length ? `${d.channels.length}, ${d.raw.car.length.toLocaleString()} readings` : "none"],
     ["GPS fixes", d.raw.gps.length.toLocaleString()], ["Motion", d.hasMotion ? `${d.raw.motion.length.toLocaleString()} readings` : "none"],
@@ -322,6 +434,33 @@ const fileName = () => (state.drive.header.name || "drive").replace(/[\\/:*?"<>|
 
 // MARK: wiring
 
+for (const name of Object.keys(LAYOUT)) if (layout[name]) setLayout(name, layout[name]);
+splitter($("#split-side"), "--side-w", false, (e, s) => s.px + (s.x - e.clientX));
+splitter($("#split-chart"), "--chart-h", true, (e, s) => s.px + (s.y - e.clientY));
+splitter($("#split-car"), "--car-h", true, (e, s) => s.px + (e.clientY - s.y));
+window.addEventListener("resize", () => { for (const name of Object.keys(layout)) setLayout(name, layout[name]); });
+
+$("#car-pick-btn").addEventListener("click", () => openCarList($("#car-list").hidden));
+$("#car-pick-btn").addEventListener("keydown", (e) => { if (e.key === "ArrowDown") { e.preventDefault(); openCarList(); } });
+$("#car-list").addEventListener("click", (e) => pickCar(e.target.closest("li")));
+$("#car-list").addEventListener("keydown", (e) => {
+  const li = e.target.closest("li");
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    (e.key === "ArrowDown" ? li?.nextElementSibling : li?.previousElementSibling)?.focus();
+  } else if (e.key === "Home" || e.key === "End") {
+    e.preventDefault();
+    $("#car-list")[e.key === "Home" ? "firstElementChild" : "lastElementChild"].focus();
+  } else if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    pickCar(li);
+  } else if (e.key === "Escape" || e.key === "Tab") {
+    openCarList(false);
+    if (e.key === "Escape") $("#car-pick-btn").focus();
+  }
+});
+document.addEventListener("pointerdown", (e) => { if (!$("#car-list").hidden && !e.target.closest("#car-pick")) openCarList(false); });
+
 const timeline = new Timeline($("#timeline"), seek);
 const chart = new StripChart($("#chart"), seek);
 chart.window = +$("#window").value;
@@ -392,7 +531,7 @@ $("#export-kml").addEventListener("click", () => download(toKml(state.drive, { l
 $("#export-csv").addEventListener("click", () => download(toCsv(state.drive), `${fileName()}.csv`, "text/csv"));
 
 document.addEventListener("keydown", (e) => {
-  if (!state.drive || e.target.closest("input, select, textarea")) return;
+  if (!state.drive || e.target.closest("input, select, textarea, #car-pick")) return;
   const k = e.key;
   if (k === " ") { e.preventDefault(); state.playing ? pause() : play(); }
   else if (k === "ArrowLeft") seek(state.t - (e.shiftKey ? 1 : 5));

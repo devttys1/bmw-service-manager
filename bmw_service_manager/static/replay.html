@@ -78,10 +78,19 @@
     </section>
 
     <aside class="side">
+      <div class="splitter split-side" id="split-side" role="separator" aria-orientation="vertical" aria-label="Resize the map and the side panel" title="Drag to resize; double-click for the usual size"></div>
       <div class="car-panel">
         <div id="car-view" class="car-view"></div>
+        <div class="car-pick" id="car-pick">
+          <button id="car-pick-btn" class="car-pick-btn secondary" aria-haspopup="listbox" aria-expanded="false" aria-controls="car-list" title="The car to draw">
+            <img alt="" width="48" height="24"><span></span><span class="caret" aria-hidden="true">▾</span>
+          </button>
+          <ul id="car-list" class="car-list" role="listbox" aria-label="Car" tabindex="-1" hidden></ul>
+        </div>
         <label class="xray"><input type="checkbox" id="xray" checked> X-ray</label>
         <div class="car-caption muted small" id="car-caption"></div>
+        <div class="car-credit muted" id="car-credit" hidden></div>
+        <div class="splitter split-car" id="split-car" role="separator" aria-orientation="horizontal" aria-label="Resize the car view" title="Drag to resize; double-click for the usual size"></div>
       </div>
       <div class="instruments">
         <canvas id="incline" aria-label="Pitch and roll"></canvas>
@@ -106,6 +115,7 @@
     </aside>
 
     <section class="transport">
+      <div class="splitter split-chart" id="split-chart" role="separator" aria-orientation="horizontal" aria-label="Resize the map and the chart" title="Drag to resize; double-click for the usual size"></div>
       <div class="row controls">
         <button id="back" class="secondary icon" title="Back 5 s (←)" aria-label="Back 5 seconds">⏪</button>
         <button id="play" class="icon play" title="Play or pause (space)" aria-label="Play">▶</button>

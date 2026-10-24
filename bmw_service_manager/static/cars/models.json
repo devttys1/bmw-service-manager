@@ -1,0 +1,373 @@
+[
+ {
+  "file": "x1-f48.glb",
+  "title": "2020 BMW X1 xDrive 18d",
+  "series": "X1",
+  "chassis": [
+   "F48"
+  ],
+  "near": [
+   "F49",
+   "F45",
+   "F46",
+   "U11"
+  ]
+ },
+ {
+  "file": "x2-f39.glb",
+  "title": "2019 BMW X2 xDrive20d M Sport X",
+  "series": "X2",
+  "chassis": [
+   "F39"
+  ],
+  "near": [
+   "U10"
+  ]
+ },
+ {
+  "file": "x3-g01.glb",
+  "title": "2022 BMW X3 xDrive 30i",
+  "series": "X3",
+  "chassis": [
+   "G01"
+  ],
+  "near": [
+   "F25",
+   "F97",
+   "G08",
+   "G45"
+  ]
+ },
+ {
+  "file": "x4-g02.glb",
+  "title": "2019 BMW X4 xDrive20d",
+  "series": "X4",
+  "chassis": [
+   "G02"
+  ],
+  "near": [
+   "F26",
+   "F98"
+  ]
+ },
+ {
+  "file": "x5-f15.glb",
+  "title": "2015 BMW X5",
+  "series": "X5",
+  "chassis": [
+   "F15"
+  ],
+  "near": [
+   "F85",
+   "E70"
+  ]
+ },
+ {
+  "file": "x5-g05.glb",
+  "title": "2019 BMW X5 xDrive30d",
+  "series": "X5",
+  "chassis": [
+   "G05"
+  ],
+  "near": [
+   "F95",
+   "G18"
+  ]
+ },
+ {
+  "file": "x6-f16.glb",
+  "title": "2015 BMW X6 F16",
+  "series": "X6",
+  "chassis": [
+   "F16"
+  ],
+  "near": [
+   "F86",
+   "E71"
+  ]
+ },
+ {
+  "file": "x6-g06.glb",
+  "title": "2020 BMW X6 xDrive40i",
+  "series": "X6",
+  "chassis": [
+   "G06"
+  ],
+  "near": [
+   "F96"
+  ]
+ },
+ {
+  "file": "x7-g07.glb",
+  "title": "2019 BMW X7 xDrive40i",
+  "series": "X7",
+  "chassis": [
+   "G07"
+  ],
+  "near": [
+   "G09"
+  ]
+ },
+ {
+  "file": "1-f20.glb",
+  "title": "2018 BMW M140i",
+  "series": "1 Series",
+  "chassis": [
+   "F20",
+   "F21"
+  ],
+  "near": [
+   "F40",
+   "E87",
+   "E81"
+  ]
+ },
+ {
+  "file": "2-f22.glb",
+  "title": "2014 BMW M235i Coupe",
+  "series": "2 Series",
+  "chassis": [
+   "F22"
+  ],
+  "near": [
+   "F23",
+   "G42"
+  ]
+ },
+ {
+  "file": "2gc-f44.glb",
+  "title": "2021 BMW 218i Gran Coupé",
+  "series": "2 Series",
+  "chassis": [
+   "F44"
+  ],
+  "near": [
+   "U06",
+   "U07"
+  ]
+ },
+ {
+  "file": "m2-f87.glb",
+  "title": "2019 BMW M2 Competition",
+  "series": "M2",
+  "chassis": [
+   "F87"
+  ],
+  "near": []
+ },
+ {
+  "file": "m2-g87.glb",
+  "title": "2023 BMW M2 G87 Coupé",
+  "series": "M2",
+  "chassis": [
+   "G87"
+  ],
+  "near": []
+ },
+ {
+  "file": "3-g20.glb",
+  "title": "2020 BMW M340i xDrive",
+  "series": "3 Series",
+  "chassis": [
+   "G20"
+  ],
+  "near": [
+   "G28",
+   "G80"
+  ]
+ },
+ {
+  "file": "m3t-g81.glb",
+  "title": "2023 BMW M3 Touring",
+  "series": "3 Series",
+  "chassis": [
+   "G81"
+  ],
+  "near": [
+   "G21"
+  ]
+ },
+ {
+  "file": "m3-f80.glb",
+  "title": "2015 BMW M3 (F80)",
+  "series": "3 Series",
+  "chassis": [
+   "F80"
+  ],
+  "near": [
+   "F30",
+   "F31",
+   "F35"
+  ]
+ },
+ {
+  "file": "3gt-f34.glb",
+  "title": "2013 BMW 335i Gran Turismo (F34)",
+  "series": "3 Series",
+  "chassis": [
+   "F34"
+  ],
+  "near": []
+ },
+ {
+  "file": "4-g22.glb",
+  "title": "2021 BMW 430i xDrive Coupé",
+  "series": "4 Series",
+  "chassis": [
+   "G22"
+  ],
+  "near": [
+   "G23"
+  ]
+ },
+ {
+  "file": "m4-f82.glb",
+  "title": "2018 BMW M4 Coupe (F82 LCi)",
+  "series": "4 Series",
+  "chassis": [
+   "F82"
+  ],
+  "near": [
+   "F32",
+   "F36"
+  ]
+ },
+ {
+  "file": "m4c-f83.glb",
+  "title": "2018 BMW M4 Convertible (F83)",
+  "series": "4 Series",
+  "chassis": [
+   "F83"
+  ],
+  "near": [
+   "F33"
+  ]
+ },
+ {
+  "file": "4gc-g26.glb",
+  "title": "2022 BMW M440i xDrive Gran Coupé",
+  "series": "4 Series",
+  "chassis": [
+   "G26"
+  ],
+  "near": []
+ },
+ {
+  "file": "m4-g82.glb",
+  "title": "2025 BMW M4 Competition",
+  "series": "4 Series",
+  "chassis": [
+   "G82"
+  ],
+  "near": [
+   "G83"
+  ]
+ },
+ {
+  "file": "m5-f90.glb",
+  "title": "2021 BMW M5 Competition",
+  "series": "5 Series",
+  "chassis": [
+   "F90"
+  ],
+  "near": [
+   "G30",
+   "G31",
+   "G38",
+   "F10",
+   "F11",
+   "F18"
+  ]
+ },
+ {
+  "file": "m5-g90.glb",
+  "title": "2025 BMW M5 Sedan",
+  "series": "5 Series",
+  "chassis": [
+   "G90"
+  ],
+  "near": [
+   "G60",
+   "G61",
+   "G99"
+  ]
+ },
+ {
+  "file": "5gt-f07.glb",
+  "title": "2014 BMW 5-Series Gran Turismo",
+  "series": "5 Series",
+  "chassis": [
+   "F07"
+  ],
+  "near": [
+   "G32"
+  ]
+ },
+ {
+  "file": "m6-f13.glb",
+  "title": "2013 BMW M6 Coupe F13",
+  "series": "6 Series",
+  "chassis": [
+   "F13"
+  ],
+  "near": [
+   "F12",
+   "F06"
+  ]
+ },
+ {
+  "file": "7-g12.glb",
+  "title": "2020 BMW 750Li xDrive",
+  "series": "7 Series",
+  "chassis": [
+   "G11",
+   "G12"
+  ],
+  "near": [
+   "F01",
+   "F02",
+   "F04",
+   "G70"
+  ]
+ },
+ {
+  "file": "8gc-g16.glb",
+  "title": "2020 BMW M850i Gran Coupe",
+  "series": "8 Series",
+  "chassis": [
+   "G16"
+  ],
+  "near": []
+ },
+ {
+  "file": "m8-f92.glb",
+  "title": "2020 BMW M8 Coupé",
+  "series": "8 Series",
+  "chassis": [
+   "F92"
+  ],
+  "near": [
+   "G15"
+  ]
+ },
+ {
+  "file": "m8c-f91.glb",
+  "title": "2020 BMW M8 Competition Convertible",
+  "series": "8 Series",
+  "chassis": [
+   "F91"
+  ],
+  "near": [
+   "G14"
+  ]
+ },
+ {
+  "file": "z4-g29.glb",
+  "title": "2019 BMW Z4 M40i",
+  "series": "Z4",
+  "chassis": [
+   "G29"
+  ],
+  "near": []
+ }
+]

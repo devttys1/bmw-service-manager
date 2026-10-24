@@ -210,8 +210,31 @@ function carShape(g, side) {
   }
 }
 
-/** Pitch and roll as two dials, a car in each tilted as the car was. */
-export function drawIncline(canvas, pitch, roll) {
+const tinted = new WeakMap();
+/** A silhouette (car3d's `silhouettes`) in colour: the body, its windows lighter, the tyres darker. */
+function carImage(view, body, card) {
+  const key = `${body} ${card}`;
+  if (tinted.get(view)?.key === key) return tinted.get(view).canvas;
+  const { all, glass, rim, tyre } = view.masks;
+  const out = document.createElement("canvas"), tmp = document.createElement("canvas");
+  out.width = tmp.width = all.width; out.height = tmp.height = all.height;
+  const g = out.getContext("2d"), t = tmp.getContext("2d");
+  for (const [mask, colour, alpha] of [[all, body, 1], [glass, card, 0.6], [rim, card, 0.3], [tyre, "#000", 0.55]]) {
+    t.globalCompositeOperation = "copy";
+    t.drawImage(mask, 0, 0);
+    t.globalCompositeOperation = "source-in";
+    t.fillStyle = colour;
+    t.fillRect(0, 0, tmp.width, tmp.height);
+    g.globalAlpha = alpha;
+    g.drawImage(tmp, 0, 0);
+  }
+  tinted.set(view, { key, canvas: out });
+  return out;
+}
+
+/** Pitch and roll as two dials, a car in each tilted as the car was: the shapes of the car
+ *  drawn (car3d's `silhouettes`), else a sketch of one. */
+export function drawIncline(canvas, pitch, roll, shapes = null) {
   const { g, w, h } = fitCanvas(canvas);
   g.clearRect(0, 0, w, h);
   const dials = [["Pitch", pitch, true], ["Roll", roll, false]];
@@ -235,13 +258,20 @@ export function drawIncline(canvas, pitch, roll) {
     g.translate(cx, cy);
     // Nose up turns the side view (facing right) anticlockwise; right side down turns the rear view clockwise.
     g.rotate(((side ? -v : v) * Math.PI) / 180);
-    g.scale(r / 40, r / 40);
-    carShape(g, side);
-    g.fillStyle = warn ? css("--red") : css("--accent");
-    g.fill();
-    g.fillStyle = css("--card");
-    if (side) { for (const wx of [-18, 18]) { g.beginPath(); g.arc(wx, 8, 6, 0, Math.PI * 2); g.fill(); } }
-    else { g.fillRect(-12, -22, 24, 8); }
+    const view = shapes?.[side ? "side" : "rear"];
+    if (view) {
+      // The car's length or width across most of the dial, its middle on the dial's.
+      const dw = r * (side ? 1.62 : 1.15), dh = dw * view.height / view.width;
+      g.drawImage(carImage(view, warn ? css("--red") : css("--accent"), css("--card")), -dw / 2, -dh / 2, dw, dh);
+    } else {
+      g.scale(r / 40, r / 40);
+      carShape(g, side);
+      g.fillStyle = warn ? css("--red") : css("--accent");
+      g.fill();
+      g.fillStyle = css("--card");
+      if (side) { for (const wx of [-18, 18]) { g.beginPath(); g.arc(wx, 8, 6, 0, Math.PI * 2); g.fill(); } }
+      else { g.fillRect(-12, -22, 24, 8); }
+    }
     g.restore();
     g.fillStyle = warn ? css("--red") : css("--text");
     g.font = "600 14px system-ui, sans-serif";

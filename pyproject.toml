@@ -21,4 +21,4 @@ build-backend = "setuptools.build_meta"
 packages = ["bmw_service_manager"]
 
 [tool.setuptools.package-data]
-bmw_service_manager = ["static/*", "static/replay/*", "static/vendor/*"]
+bmw_service_manager = ["static/*", "static/cars/*", "static/cars/thumbs/*", "static/replay/*", "static/vendor/*"]
