@@ -4,10 +4,10 @@
 import {
   readLog, parseLog, processLog, at, headingAt, value, findStartLine, lapsFor, delta, toKml, toCsv, formatTime,
 } from "./drivelog.js";
-import { ReplayMap, BASEMAPS } from "./maplayer.js";
+import { ReplayMap, BASEMAPS, driveBounds } from "./maplayer.js";
 import { CarView } from "./carview.js";
 import { SIZE, models, modelFor, chassisOf, loadModel, PAINTS } from "./car3d.js";
-import { Timeline, StripChart, drawGG, drawIncline } from "./charts.js";
+import { Timeline, StripChart, drawGG, drawIncline, SERIES } from "./charts.js";
 
 const $ = (s) => document.querySelector(s);
 const state = { mode: "chase", drive: null, t: 0, playing: false, rate: 1, laps: [], line: null, ref: null, map: null, view: null, dirty: true };
@@ -55,7 +55,7 @@ function show(drive, label) {
 
   // A new map and close-up for each drive: its drivetrain may differ.
   if (state.map) state.map.map.remove();
-  state.map = new ReplayMap($("#map"), { driven, xdrive });
+  state.map = new ReplayMap($("#map"), { driven, xdrive, bounds: driveBounds(drive) });
   state.map.onModeChange = (mode) => { state.mode = mode; markMode(mode); };
   state.mapReady = false;
   $("#car-view").replaceChildren();
@@ -211,12 +211,17 @@ function play() {
   if (!state.drive) return;
   if (state.t >= state.drive.duration) state.t = 0;
   state.playing = true;
-  $("#play").textContent = "⏸"; $("#play").setAttribute("aria-label", "Pause");
+  playIcon("pause");
 }
 
 function pause() {
   state.playing = false;
-  $("#play").textContent = "▶"; $("#play").setAttribute("aria-label", "Play");
+  playIcon("play");
+}
+
+function playIcon(icon) {
+  $("#play use").setAttribute("href", `#i-${icon}`);
+  $("#play").setAttribute("aria-label", icon === "play" ? "Play" : "Pause");
 }
 
 function seek(t) {
@@ -263,6 +268,8 @@ function carState(t, dt) {
     wheels: wheels.every(Number.isFinite) ? wheels : null,
     engine: value(d, "Torque", t),
     secondary: value(d, state.secondary, t),
+    rpm: value(d, "RPM", t),
+    boost: value(d, "Boost", t),
   };
 }
 
@@ -403,6 +410,15 @@ function fillChips() {
   }
   chart.names = chartNames.filter((n) => d.byName[n]);
   $("#chips").innerHTML = all.map((n) => `<span class="chip${chart.names.includes(n) ? " on" : ""}" role="checkbox" tabindex="0" aria-checked="${chart.names.includes(n)}" data-name="${n}">${n}</span>`).join("");
+  tintChips();
+}
+
+/** Each chosen value's chip in its lane's colour, so the two can be matched up. */
+function tintChips() {
+  for (const el of document.querySelectorAll("#chips .chip")) {
+    const k = chart.names.indexOf(el.dataset.name);
+    el.style.setProperty("--tint", k < 0 ? "" : `var(--series-${(k % SERIES) + 1})`);
+  }
 }
 
 function toggleChip(el) {
@@ -410,6 +426,7 @@ function toggleChip(el) {
   chartNames = chart.names.includes(n) ? chart.names.filter((x) => x !== n) : [...chart.names, n];
   chart.names = chartNames;
   el.classList.toggle("on"); el.setAttribute("aria-checked", el.classList.contains("on"));
+  tintChips();
   state.dirty = true;
 }
 
@@ -551,7 +568,8 @@ document.addEventListener("keydown", (e) => {
   }
 });
 window.addEventListener("resize", () => { state.dirty = true; });
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { timeline.cache = null; state.dirty = true; });
+// The canvases' text is in the page's fonts: draw again once they're in.
+document.fonts?.ready.then(() => { timeline.cache = null; state.dirty = true; });
 
 requestAnimationFrame(frame);
 // /replay?sample opens the sample at once.

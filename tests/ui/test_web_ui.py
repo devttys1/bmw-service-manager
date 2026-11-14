@@ -80,7 +80,8 @@ def test_history_with_large_mileages(app):
     assert mileages(page) == [4_294_967_295, 12_345, 65_536, 65_535], "the down button still works"
 
     remove = page.locator('.record [data-act="remove"]').first
-    assert remove.evaluate("b => getComputedStyle(b).backgroundColor") in ("rgb(198, 40, 40)", "rgb(239, 83, 80)"), "Remove is red"
+    # Red text and outline (Redline, light or dark); only Write to car is filled.
+    assert remove.evaluate("b => getComputedStyle(b).color") in ("rgb(200, 40, 30)", "rgb(255, 90, 79)"), "Remove is red"
     page.locator('.record [data-act="remove"]').last.click()
     page.locator('.record [data-act="remove"]').nth(1).click()
     assert mileages(page) == [4_294_967_295, 65_536]
@@ -121,7 +122,7 @@ def background(page: Page) -> str:
 
 def test_appearance_light_dark_and_system(app):
     page, _ = app
-    light, dark = "rgb(244, 245, 247)", "rgb(20, 23, 27)"
+    light, dark = "rgb(245, 247, 251)", "rgb(11, 22, 48)"  # the brand book's Paper and Midnight
     page.emulate_media(color_scheme="light")
     assert background(page) == light, "System follows a light computer"
     page.emulate_media(color_scheme="dark")

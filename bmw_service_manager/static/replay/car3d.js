@@ -4,12 +4,15 @@
 //
 // Axes are the car's (ISO 8855): x forward, y left, z up, metres, the origin on the ground
 // halfway between the axles. `update(state)` turns the wheels at their own speeds, steers the
-// front ones, and lights the drivetrain by the torque through it: the engine and the axle it
-// always drives, and xDrive's clutch, propshaft and the other axle.
+// front ones, and runs the drivetrain (drivetrain.js): the engine and the axle it always drives,
+// and xDrive's clutch, propshaft and the other axle, lit by the torque through them.
 
 import * as THREE from "three";
 import { GLTFLoader } from "../vendor/GLTFLoader.js";
 import { MeshoptDecoder } from "../vendor/meshopt_decoder.module.js";
+import { buildDrivetrain, heatColor } from "./drivetrain.js";
+
+export { heatColor };
 
 /** The simple car's size; a model brings its own (its "car" node's extras). */
 export const SIZE = { wheelbase: 2.67, track: 1.56, wheelRadius: 0.345, wheelWidth: 0.225 };
@@ -69,34 +72,6 @@ export const PAINTS = {
   "C10": ["Mediterranean Blue", 0x2a4a74], "C1M": ["Phytonic Blue", 0x1e3550], "C3Z": ["Tanzanite Blue", 0x1d1f33],
   "C31": ["Portimao Blue", 0x1f5aa6], "C36": ["Dravit Grey", 0x5a5b58],
 };
-
-/** Torque 0...1 as a colour: cool blue, through amber, to hot red. */
-export function heatColor(f, target = new THREE.Color()) {
-  const k = Math.min(1, Math.max(0, f));
-  const stops = [[0, [0.18, 0.32, 0.55]], [0.35, [0.1, 0.65, 0.95]], [0.65, [1.0, 0.62, 0.1]], [1, [1.0, 0.15, 0.08]]];
-  for (let i = 1; i < stops.length; i++) {
-    if (k <= stops[i][0]) {
-      const [a, ca] = stops[i - 1], [b, cb] = stops[i];
-      const s = (k - a) / (b - a);
-      return target.setRGB(ca[0] + (cb[0] - ca[0]) * s, ca[1] + (cb[1] - ca[1]) * s, ca[2] + (cb[2] - ca[2]) * s);
-    }
-  }
-  return target.setRGB(...stops.at(-1)[1]);
-}
-
-/** Stripes around a shaft, so it can be seen turning. */
-function stripes(color) {
-  const c = document.createElement("canvas");
-  c.width = 64; c.height = 8;
-  const g = c.getContext("2d");
-  g.fillStyle = color; g.fillRect(0, 0, 64, 8);
-  g.fillStyle = "rgba(0,0,0,0.45)";
-  for (let x = 0; x < 64; x += 16) g.fillRect(x, 0, 6, 8);
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
 
 /** The body's side view (x forward, z up), wheel arches cut out, as a 2D shape. */
 function bodyProfile() {
@@ -272,72 +247,14 @@ export function buildCar({ paint = 0x8a96a3, paintCode = null, model = null, xra
     wheels.push({ steer, spin, tyre: tm, disc: dm, angle: 0, front: x > 0 });
   }
 
-  // The drivetrain, shown through the body in X-ray: engine and gearbox across the front,
-  // shafts to the driven wheels, and xDrive's propshaft, clutch and differential.
+  // The drivetrain, shown through the body in X-ray (drivetrain.js); only built where it's shown.
   const drive = new THREE.Group();
   root.add(drive);
-  const glow = (color = 0x4d8ef0) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.25, metalness: 0.4, roughness: 0.5 });
-  const engineMat = glow(0x6b7785), primaryMat = glow(), secondaryMat = glow();
-  const shaftTex = stripes("#9aa5b1");
-  const primaryShaftMat = new THREE.MeshStandardMaterial({ map: shaftTex, emissive: 0x000000, metalness: 0.5, roughness: 0.4 });
-  const secondaryShaftMat = new THREE.MeshStandardMaterial({ map: shaftTex.clone(), emissive: 0x000000, metalness: 0.5, roughness: 0.4 });
+  const train = arrows || xray ? buildDrivetrain({ driven, xdrive, front: FRONT, rear: REAR, track: TRACK, wheelR: WHEEL_R }) : null;
+  if (train) drive.add(train.group);
   const primaryAxle = driven === "rear" ? REAR : FRONT;
   const otherAxle = driven === "rear" ? FRONT : REAR;
-  const engine = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.62, 0.5), engineMat);
-  const gearbox = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.36), primaryMat);
-  if (driven === "front") { // transverse, as in the F48
-    engine.position.set(FRONT + 0.285, 0.18, 0.68);
-    gearbox.position.set(FRONT + 0.145, -0.35, 0.52);
-  } else { // in line, as in the F15 and G-series
-    engine.geometry = new THREE.BoxGeometry(0.75, 0.5, 0.5);
-    engine.position.set(FRONT + 0.015, 0, 0.7);
-    gearbox.position.set(FRONT - 0.785, 0, 0.5);
-  }
-  drive.add(engine, gearbox);
-  const shafts = { primary: [], secondary: [] };
-  const axleZ = WHEEL_R;
-  for (const side of [1, -1]) {
-    const s = cylinderBetween(new THREE.Vector3(primaryAxle, 0, axleZ), new THREE.Vector3(primaryAxle, side * (TRACK / 2 - 0.12), axleZ), 0.03, primaryShaftMat);
-    shafts.primary.push(s); drive.add(s);
-  }
-  const diffMat = glow(0x6b7785);
-  const primaryDiff = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), primaryMat);
-  primaryDiff.position.set(primaryAxle, 0, axleZ);
-  drive.add(primaryDiff);
   const hasXDrive = xdrive === "rear" || xdrive === "front";
-  let clutch = null;
-  if (hasXDrive) {
-    const prop = cylinderBetween(new THREE.Vector3(primaryAxle - Math.sign(primaryAxle) * 0.18, 0, axleZ + 0.02),
-      new THREE.Vector3(otherAxle - Math.sign(otherAxle) * 0.42, 0, axleZ + 0.02), 0.04, secondaryShaftMat);
-    shafts.secondary.push(prop); drive.add(prop);
-    // xDrive's clutch: a stack of plates at the rear differential's input (F48) or in the transfer case.
-    clutch = new THREE.Group();
-    clutch.position.set(otherAxle - Math.sign(otherAxle) * 0.3, 0, axleZ + 0.02);
-    const plates = [];
-    for (let k = 0; k < 7; k++) {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.012, 24), k % 2 ? glow(0xb0b8c0) : secondaryMat);
-      p.rotation.z = Math.PI / 2;
-      clutch.add(p);
-      plates.push(p);
-    }
-    const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.2, 24, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x5a636c, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
-    housing.rotation.z = Math.PI / 2;
-    clutch.add(housing);
-    clutch.userData.plates = plates;
-    drive.add(clutch);
-    const diff = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), secondaryMat);
-    diff.position.set(otherAxle, 0, axleZ);
-    drive.add(diff);
-    for (const side of [1, -1]) {
-      const s = cylinderBetween(new THREE.Vector3(otherAxle, 0, axleZ), new THREE.Vector3(otherAxle, side * (TRACK / 2 - 0.12), axleZ), 0.03, secondaryShaftMat);
-      shafts.secondary.push(s); drive.add(s);
-    }
-  } else {
-    const diff = new THREE.Mesh(new THREE.BoxGeometry(0.12, TRACK - 0.3, 0.06), diffMat);
-    diff.position.set(otherAxle, 0, axleZ);
-    drive.add(diff);
-  }
 
   // Torque arrows over each axle's wheels, for the close-up.
   const arrowsByAxle = { primary: [], secondary: [] };
@@ -372,11 +289,10 @@ export function buildCar({ paint = 0x8a96a3, paintCode = null, model = null, xra
   }
   setXray(xray);
 
-  const tmp = new THREE.Color();
   /**
    * state: wheels [FL, FR, RL, RR] km/h, speed km/h (for slip), steer (° left), dt (s),
    * engine (Nm at the crank, max ~400), secondary (Nm through xDrive's clutch, max ~1000),
-   * braking (0...1).
+   * rpm, boost (bar), braking (0...1).
    */
   const wheelR = WHEEL_R, wheelbase = WHEELBASE;
   function update(state) {
@@ -395,29 +311,16 @@ export function buildCar({ paint = 0x8a96a3, paintCode = null, model = null, xra
     for (const m of brakeLights) m.emissiveIntensity = (m.userData.glow ?? 0.6) * (1 + 4 * (state.braking || 0));
     const engineF = Math.max(0, state.engine || 0) / 380;
     const secondF = Math.max(0, state.secondary || 0) / 1000;
-    for (const m of [primaryMat]) { heatColor(engineF, m.emissive); m.emissiveIntensity = 0.25 + 1.2 * engineF; }
-    heatColor(engineF * 0.6, engineMat.emissive); engineMat.emissiveIntensity = 0.15 + 0.6 * engineF;
-    heatColor(secondF, secondaryMat.emissive); secondaryMat.emissiveIntensity = 0.2 + 1.4 * secondF;
-    heatColor(engineF, tmp); primaryShaftMat.emissive.copy(tmp).multiplyScalar(0.25 + engineF);
-    heatColor(secondF, tmp); secondaryShaftMat.emissive.copy(tmp).multiplyScalar(0.15 + secondF);
-    // Shafts turn with the wheels; the propshaft only does real work when the clutch closes.
-    const turn = ((state.speed ?? 0) / 3.6 / wheelR) * dt;
-    primaryShaftMat.map.offset.x = (primaryShaftMat.map.offset.x + turn / (Math.PI * 2)) % 1;
-    secondaryShaftMat.map.offset.x = (secondaryShaftMat.map.offset.x + turn * 3 / (Math.PI * 2)) % 1;
-    if (clutch) {
-      // Plates spread when open, packed tight when the clutch closes.
-      const gap = 0.012 + 0.03 * (1 - Math.min(1, secondF * 2.2));
-      clutch.userData.plates.forEach((p, k) => { p.position.x = (k - 3) * gap; });
-    }
+    if (drive.visible) train?.update(state, dt);
     for (const a of arrowsByAxle.primary) { a.scale.set(0.25 + engineF * 1.6, 1, 1); heatColor(engineF, a.userData.material.color); a.userData.material.emissive.copy(a.userData.material.color); }
     for (const a of arrowsByAxle.secondary) { a.visible = secondF > 0.01; a.scale.set(0.25 + secondF * 1.6, 1, 1); heatColor(secondF, a.userData.material.color); a.userData.material.emissive.copy(a.userData.material.color); }
   }
 
-  /** Where to put labels: the two axles' centres and the clutch, in the car's axes. */
-  const anchors = {
-    primary: new THREE.Vector3(primaryAxle, 0, axleZ + 0.25),
-    secondary: hasXDrive ? new THREE.Vector3(otherAxle - Math.sign(otherAxle) * 0.3, 0, axleZ + 0.3) : null,
-    engine: engine.position.clone().add(new THREE.Vector3(0, 0, 0.35)),
+  /** Where to put labels: the engine, the axle it drives and xDrive's clutch, in the car's axes. */
+  const anchors = train?.anchors ?? {
+    primary: new THREE.Vector3(primaryAxle, 0, WHEEL_R + 0.25),
+    secondary: hasXDrive ? new THREE.Vector3(otherAxle - Math.sign(otherAxle) * 0.3, 0, WHEEL_R + 0.3) : null,
+    engine: new THREE.Vector3(FRONT, 0, 1.0),
   };
 
   return { root, body, drive, update, setXray, anchors, hasXDrive, driven, wheelbase, model: model?.info ?? null };

@@ -31,24 +31,30 @@ function icon(name, cls = "ico") {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.tool}</svg>`;
 }
 
-// Item codes are shared by service history and CBS. Tints are CSS color names from style.css.
+// Item codes are shared by service history and CBS. Every item's icon is the same neutral grey,
+// as in the iOS app: oil orange and brakes red looked like the due and overdue warnings beside
+// them, so colour now only ever means a status.
 function itemStyle(code) {
+  return { icon: itemSymbol(code), tint: "muted" };
+}
+
+function itemSymbol(code) {
   switch (Number(code)) {
-    case 1: return { icon: "oilcan", tint: "orange" };
-    case 2: case 6: return { icon: "brake", tint: "red" };
-    case 3: return { icon: "droplet", tint: "red" };
-    case 4: return { icon: "air-conditioning", tint: "teal" };
-    case 5: return { icon: "propeller", tint: "teal" };
-    case 10: return { icon: "bolt", tint: "yellow" };
-    case 11: return { icon: "wind", tint: "teal" };
-    case 12: return { icon: "gas-station", tint: "indigo" };
-    case 0x0D: return { icon: "droplet-half", tint: "cyan" };
-    case 0x11: case 100: return { icon: "tools", tint: "blue" };
-    case 20: return { icon: "package", tint: "purple" };
-    case 21: return { icon: "road", tint: "purple" };
-    case 32: return { icon: "rosette-check", tint: "green" };
-    case 33: return { icon: "cloud", tint: "green" };
-    default: return { icon: "tool", tint: "gray" };
+    case 1: return "oilcan";
+    case 2: case 6: return "brake";
+    case 3: return "droplet";
+    case 4: return "air-conditioning";
+    case 5: return "propeller";
+    case 10: return "bolt";
+    case 11: return "wind";
+    case 12: return "gas-station";
+    case 0x0D: return "droplet-half";
+    case 0x11: case 100: return "tools";
+    case 20: return "package";
+    case 21: return "road";
+    case 32: return "rosette-check";
+    case 33: return "cloud";
+    default: return "tool";
   }
 }
 

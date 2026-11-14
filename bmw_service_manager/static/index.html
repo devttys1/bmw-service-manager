@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BMW Service History</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="/static/boostbook-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <script>
     // Appearance (System, Light or Dark) before the page draws, so it doesn't flash.
@@ -12,12 +14,15 @@
   </script>
 </head>
 <body>
-  <header>
-    <div class="row spread">
-      <div>
-        <h1>BMW Service History</h1>
-        <p class="sub">CIC · NBT · NBT Evo · ENTRY · CHAMP2 head units over ENET</p>
-      </div>
+  <header class="app-bar">
+    <div class="inner">
+      <a class="brand" href="/" aria-label="BMW Service History">
+        <img src="/static/boostbook-icon.svg" alt="" width="34" height="34">
+        <span class="brand-text">
+          <h1>BMW Service History</h1>
+          <span class="sub">CIC · NBT · NBT Evo · ENTRY · CHAMP2 head units over ENET</span>
+        </span>
+      </a>
       <nav class="pages" aria-label="Pages">
         <a href="/" aria-current="page">Service history</a>
         <a href="/replay">Drive replay</a>
@@ -30,7 +35,7 @@
 
   <main>
     <section class="card">
-      <h2>1. Vehicle</h2>
+      <h2><span class="step">1</span>Vehicle</h2>
       <div class="row">
         <button id="discover">Find vehicle</button>
         <label>IP address <input id="host" placeholder="169.254.x.x" size="16"></label>
@@ -41,7 +46,7 @@
 
     <section class="card">
       <div class="row spread">
-        <h2>2. Service history</h2>
+        <h2><span class="step">2</span>Service history</h2>
         <div class="row">
           <button id="add-record">Add record</button>
           <button id="sort-km" class="secondary" title="Highest mileage at the top">Sort by mileage</button>
@@ -75,7 +80,7 @@
     </section>
 
     <section class="card">
-      <h2>3. Write to head unit</h2>
+      <h2><span class="step">3</span>Write to head unit</h2>
       <div class="row">
         <label><input type="checkbox" id="erase" checked> Erase existing history first</label>
         <label><input type="checkbox" id="reset" checked> Restart head unit afterwards</label>
@@ -104,7 +109,7 @@
     </section>
 
     <section class="card" id="probe-card" hidden>
-      <h2>4. Read from head unit <span class="tag">experimental</span></h2>
+      <h2><span class="step">4</span>Read from head unit <span class="tag">experimental</span></h2>
       <p class="muted">No known command reads service history back. These read-only probes look for one. They never start a routine or change anything on the car. The DID scan can target any ECU, in case another one keeps a copy of the history.</p>
       <div class="row">
         <button id="probe-routines" class="secondary">Ask for routine results (31 03)</button>

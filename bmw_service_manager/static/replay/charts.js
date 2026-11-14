@@ -4,6 +4,11 @@
 import { at, formatTime } from "./drivelog.js";
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const UI = '"Inter", system-ui, sans-serif', FIGURES = '"Archivo", system-ui, sans-serif', LABEL = '"IBM Plex Mono", ui-monospace, monospace';
+
+/** How many chart colours there are (--series-1 and on), in the brand book's order. */
+export const SERIES = 6;
+const series = () => Array.from({ length: SERIES }, (_, k) => css(`--series-${k + 1}`));
 
 /** Fit a canvas to its box at the screen's pixel density; returns its context and size in CSS pixels. */
 function fitCanvas(canvas) {
@@ -55,7 +60,7 @@ export class Timeline {
       const dpr = this.canvas.width / w;
       o.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.laps.forEach((lap, k) => {
-        o.fillStyle = lap.best ? "rgba(48,209,88,0.18)" : k % 2 ? "rgba(127,127,127,0.10)" : "rgba(127,127,127,0.04)";
+        o.fillStyle = lap.best ? css("--green") + "26" : k % 2 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)";
         o.fillRect(x(lap.start), 0, x(lap.end) - x(lap.start), h);
       });
       let max = 1;
@@ -66,22 +71,28 @@ export class Timeline {
       for (let i = 0; i < d.n; i += step) o.lineTo(x(d.t[i]), h - 3 - (d.speed[i] / max) * (h - 8));
       o.lineTo(w, h);
       o.closePath();
-      o.fillStyle = css("--accent") + "55";
+      const fill = o.createLinearGradient(0, 0, 0, h);
+      fill.addColorStop(0, css("--accent") + "66");
+      fill.addColorStop(1, css("--accent") + "08");
+      o.fillStyle = fill;
       o.fill();
       o.strokeStyle = css("--accent");
-      o.lineWidth = 1;
+      o.lineWidth = 1.25;
       o.stroke();
       o.fillStyle = css("--yellow");
       for (const m of d.marks) { o.fillRect(x(m.t) - 1, 0, 2, h); o.beginPath(); o.moveTo(x(m.t) + 1, 1); o.lineTo(x(m.t) + 8, 4); o.lineTo(x(m.t) + 1, 7); o.fill(); }
       o.fillStyle = css("--muted");
-      o.font = "10px system-ui, sans-serif";
-      this.laps.forEach((lap) => { if (x(lap.end) - x(lap.start) > 46) o.fillText(`Lap ${lap.n} ${formatTime(lap.time, true)}`, x(lap.start) + 4, 11); });
+      o.font = `500 9.5px ${LABEL}`;
+      this.laps.forEach((lap) => { if (x(lap.end) - x(lap.start) > 60) o.fillText(`LAP ${lap.n}  ${formatTime(lap.time, true)}`, x(lap.start) + 6, 12); });
       this.cache = { canvas: off, w, h, theme: css("--text") };
     }
     g.clearRect(0, 0, w, h);
     g.drawImage(this.cache.canvas, 0, 0, w, h);
+    g.fillStyle = "rgba(0,0,0,0.25)"; // what's still to come, dimmed
+    g.fillRect(x(t), 0, w - x(t), h);
     g.fillStyle = css("--text");
     g.fillRect(x(t) - 1, 0, 2, h);
+    g.beginPath(); g.arc(x(t), 4, 4, 0, Math.PI * 2); g.fill();
   }
 }
 
@@ -131,7 +142,7 @@ export class StripChart {
     g.clearRect(0, 0, w, h);
     const channels = this.names.map((n) => d.byName[n]).filter(Boolean);
     if (!channels.length) {
-      g.fillStyle = css("--muted"); g.font = "13px system-ui, sans-serif";
+      g.fillStyle = css("--muted"); g.font = `13px ${UI}`;
       g.fillText("Choose values to chart above.", 12, 24);
       return;
     }
@@ -140,7 +151,8 @@ export class StripChart {
     const lane = h / channels.length;
     const i0 = Math.max(0, Math.floor(a * d.rate)), i1 = Math.min(d.n - 1, Math.ceil(b * d.rate));
     const step = Math.max(1, Math.floor((i1 - i0) / (w * 1.5)));
-    const colors = [css("--accent"), css("--orange"), css("--green"), css("--purple"), css("--red"), css("--teal"), css("--yellow"), css("--indigo")];
+    // Never red: that's for limits (the brand book). The chips wear the same colours (replay.js).
+    const colors = series();
     // Laps and marks across every lane.
     g.strokeStyle = css("--border"); g.setLineDash([3, 3]); g.lineWidth = 1;
     for (const lap of this.laps) for (const tt of [lap.start, lap.end]) if (tt > a && tt < b) { g.beginPath(); g.moveTo(x(tt), 0); g.lineTo(x(tt), h); g.stroke(); }
@@ -151,7 +163,7 @@ export class StripChart {
       const y = (v) => top + lane - 3 - ((v - lo) / (hi - lo)) * (lane - 6);
       if (k) { g.fillStyle = css("--border"); g.fillRect(0, top, w, 1); }
       if (lo < 0 && hi > 0) { g.fillStyle = css("--border"); g.fillRect(0, y(0), w, 1); }
-      g.strokeStyle = color; g.lineWidth = 1.5; g.beginPath();
+      g.strokeStyle = color; g.lineWidth = 1.6; g.lineJoin = "round"; g.beginPath();
       let pen = false;
       for (let i = i0; i <= i1; i += step) {
         const v = c.values[i];
@@ -160,11 +172,12 @@ export class StripChart {
       }
       g.stroke();
       const v = at(d, c.values, t);
-      g.font = "600 11px system-ui, sans-serif";
+      g.font = `600 11px ${UI}`;
       const label = `${c.name}  ${Number.isFinite(v) ? (c.states ? c.states[Math.round(v)] ?? v : v.toFixed(c.digits ?? 0)) : "—"}${c.unit && !c.states ? ` ${c.unit}` : ""}`;
       const tw = g.measureText(label).width;
-      g.fillStyle = css("--card") + "dd"; g.fillRect(4, top + 3, tw + 10, 16);
-      g.fillStyle = color; g.fillText(label, 9, top + 15);
+      g.fillStyle = css("--bg") + "e0";
+      g.beginPath(); g.roundRect(4, top + 4, tw + 12, 17, 5); g.fill();
+      g.fillStyle = color; g.fillText(label, 10, top + 16.5);
     });
     g.fillStyle = css("--text");
     g.fillRect(x(t) - 0.75, 0, 1.5, h);
@@ -180,9 +193,9 @@ export function drawGG(canvas, drive, t) {
   g.strokeStyle = css("--border"); g.lineWidth = 1;
   for (const ring of [0.5, 1.0]) { g.beginPath(); g.arc(cx, cy, (ring / full) * r, 0, Math.PI * 2); g.stroke(); }
   g.beginPath(); g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke();
-  g.fillStyle = css("--muted"); g.font = "10px system-ui, sans-serif";
+  g.fillStyle = css("--muted"); g.font = `500 9.5px ${LABEL}`;
   g.fillText("1 g", cx + (1 / full) * r * 0.72 + 2, cy - (1 / full) * r * 0.72);
-  g.fillText("g-g", 6, 12);
+  g.fillText("G-G", 6, 12);
   if (!drive?.hasMotion) { g.fillText("No motion data", cx - 36, cy); return; }
   // Left turns pull to the left, braking to the bottom.
   const px = (latG) => cx - (latG / full) * r, py = (longG) => cy - (longG / full) * r;
@@ -194,8 +207,10 @@ export function drawGG(canvas, drive, t) {
   const lat = at(drive, drive.latG, t), lon = at(drive, drive.longG, t);
   g.fillStyle = css("--accent");
   g.beginPath(); g.arc(px(lat), py(lon), 6, 0, Math.PI * 2); g.fill();
-  g.fillStyle = css("--text"); g.font = "600 12px system-ui, sans-serif";
-  g.fillText(`${Math.hypot(lat, lon).toFixed(2)} g`, w - 52, h - 6);
+  g.fillStyle = css("--text"); g.font = `600 13px ${FIGURES}`;
+  g.textAlign = "right";
+  g.fillText(`${Math.hypot(lat, lon).toFixed(2)} g`, w - 6, h - 6);
+  g.textAlign = "start";
 }
 
 /** A car from the side (facing right) or from behind, as a path around (0, 0), about 60 wide. */
@@ -274,11 +289,11 @@ export function drawIncline(canvas, pitch, roll, shapes = null) {
     }
     g.restore();
     g.fillStyle = warn ? css("--red") : css("--text");
-    g.font = "600 14px system-ui, sans-serif";
+    g.font = `600 15px ${FIGURES}`;
     g.textAlign = "center";
     g.fillText(`${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}°`, cx, cy + r + 18);
-    g.fillStyle = css("--muted"); g.font = "10px system-ui, sans-serif";
-    g.fillText(label, cx, cy + r + 30);
+    g.fillStyle = css("--muted"); g.font = `500 9.5px ${LABEL}`;
+    g.fillText(label.toUpperCase(), cx, cy + r + 31);
     g.textAlign = "start";
   });
 }

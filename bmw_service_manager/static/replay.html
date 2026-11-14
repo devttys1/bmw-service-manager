@@ -1,48 +1,69 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="replay">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>Drive Replay</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="/static/boostbook-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/vendor/maplibre-gl.css">
   <link rel="stylesheet" href="/static/replay.css">
-  <script>
-    // Appearance (System, Light or Dark) before the page draws, so it doesn't flash.
-    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
-  </script>
   <script type="importmap">{ "imports": { "three": "/static/vendor/three.module.min.js" } }</script>
   <script src="/static/vendor/maplibre-gl.js"></script>
 </head>
 <body class="replay">
+  <!-- Icons, drawn once and used by reference. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.53.85l10.2-6.5a1 1 0 0 0 0-1.7L9.53 4.65A1 1 0 0 0 8 5.5Z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M11 7 6 12l5 5M18 7l-5 5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-fwd" viewBox="0 0 24 24"><path d="m13 7 5 5-5 5M6 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h4l2 2h7A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0-4-4m4 4 4-4M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 20V4.5m0 0h10.5l-2 3.5 2 3.5H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
   <header class="replay-bar">
-    <div class="brand">
-      <h1>Drive Replay</h1>
-      <span class="sub" id="drive-name">Drives from Boostbook's Logger, on a 3D map</span>
-    </div>
+    <a class="brand" href="/replay" aria-label="Drive Replay">
+      <img src="/static/boostbook-icon.svg" alt="" width="30" height="30">
+      <span class="brand-text">
+        <h1>Drive Replay</h1>
+        <span class="sub" id="drive-name">Drives from Boostbook's Logger, on a 3D map</span>
+      </span>
+    </a>
     <nav class="pages" aria-label="Pages">
       <a href="/">Service history</a>
       <a href="/replay" aria-current="page">Drive replay</a>
     </nav>
-    <div class="row actions">
-      <label class="file-btn">Open drive…<input id="open" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
-      <button id="sample" class="secondary">Sample drive</button>
-      <button id="export-kml" class="secondary" disabled title="A KML file for Google Earth: the path, and the car's track with its heading, pitch, roll and values to play back with Earth's time slider">Google Earth (.kml)</button>
-      <button id="export-csv" class="secondary" disabled title="Ten rows a second: time, position, attitude and every value">CSV</button>
+    <div class="actions">
+      <button id="sample" class="ghost">Sample drive</button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="export-kml" class="ghost" disabled title="A KML file for Google Earth: the path, and the car's track with its heading, pitch, roll and values to play back with Earth's time slider"><svg class="ico"><use href="#i-download"/></svg>Google Earth</button>
+      <button id="export-csv" class="ghost" disabled title="Ten rows a second: time, position, attitude and every value"><svg class="ico"><use href="#i-download"/></svg>CSV</button>
+      <label class="file-btn primary"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
     </div>
   </header>
 
   <section id="empty" class="empty">
     <div class="drop" id="drop">
+      <img class="hero-icon" src="/static/boostbook-icon.svg" alt="" width="76" height="76">
+      <p class="eyebrow">Drive replay</p>
       <h2>Watch a drive again</h2>
-      <p>Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here or click <strong>Open drive</strong>.</p>
-      <p class="muted">You'll see the car on a 3D map of the terrain, turning, pitching and rolling as it did; its wheels and xDrive at work in an X-ray view; lap times, charts of every value, and a g-g circle. Export it for Google Earth or a spreadsheet.</p>
+      <p class="lead">Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here.</p>
       <div class="row center">
-        <label class="file-btn">Open drive…<input id="open2" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
-        <button id="sample2" class="secondary">Try the sample drive</button>
+        <label class="file-btn primary large"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open2" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
+        <button id="sample2" class="ghost large"><svg class="ico"><use href="#i-play"/></svg>Try the sample drive</button>
       </div>
-      <p class="muted small">The sample is the app's simulator: an X1 xDrive18d around Mount Panorama, Bathurst, from a standing start. The file is read in this browser; nothing is uploaded. The map's imagery and terrain come from Esri, OpenTopoMap, OpenStreetMap and AWS's open terrain tiles.</p>
+      <ul class="features">
+        <li><strong>3D terrain</strong><span>The car on the map, turning, pitching and rolling as it did</span></li>
+        <li><strong>X-ray</strong><span>Its wheels and xDrive at work, close up</span></li>
+        <li><strong>Laps and charts</strong><span>Lap times, every value, a g-g circle</span></li>
+        <li><strong>Export</strong><span>Google Earth (.kml) or a spreadsheet (.csv)</span></li>
+      </ul>
+      <p class="muted small">The sample is the app's simulator: an X1 xDrive18d around Mount Panorama, Bathurst, from a standing start. The file is read in this browser; nothing is uploaded. The map's imagery and terrain come from the NSW, Queensland and Tasmanian governments' aerial photos, Esri, OpenTopoMap, OpenStreetMap and AWS's open terrain tiles.</p>
       <p id="load-error" class="err" hidden></p>
     </div>
   </section>
@@ -50,7 +71,7 @@
   <main id="player" class="player" hidden>
     <section class="stage">
       <div id="map" class="map"></div>
-      <div class="hud" id="hud" aria-live="off">
+      <div class="hud glass" id="hud" aria-live="off">
         <div class="hud-speed"><span id="hud-speed">0</span><small>km/h</small></div>
         <div class="hud-grid">
           <span>RPM</span><strong id="hud-rpm">—</strong>
@@ -64,16 +85,16 @@
           <span id="hud-delta" class="delta"></span>
         </div>
       </div>
-      <div class="map-tools">
+      <div class="map-tools glass">
         <div class="seg" role="group" aria-label="Camera">
           <button data-mode="chase" class="on" title="Behind the car (C)">Chase</button>
           <button data-mode="top" title="Above the car, north up (T)">Above</button>
           <button data-mode="free" title="Leave the camera where you put it (F)">Free</button>
           <button data-mode="fit" title="The whole drive (W)">Whole drive</button>
         </div>
-        <label>Map <select id="basemap"></select></label>
-        <label>Colour <select id="colour-by"></select></label>
-        <label title="Exaggerate the terrain's height">Terrain <input id="exaggeration" type="range" min="1" max="3" step="0.25" value="1"><span id="exaggeration-value">1×</span></label>
+        <label><span>Map</span> <select id="basemap"></select></label>
+        <label><span>Colour</span> <select id="colour-by"></select></label>
+        <label title="Exaggerate the terrain's height"><span>Terrain</span> <input id="exaggeration" type="range" min="1" max="3" step="0.25" value="1"><output id="exaggeration-value">1×</output></label>
       </div>
     </section>
 
@@ -82,7 +103,7 @@
       <div class="car-panel">
         <div id="car-view" class="car-view"></div>
         <div class="car-pick" id="car-pick">
-          <button id="car-pick-btn" class="car-pick-btn secondary" aria-haspopup="listbox" aria-expanded="false" aria-controls="car-list" title="The car to draw">
+          <button id="car-pick-btn" class="car-pick-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="car-list" title="The car to draw">
             <img alt="" width="48" height="24"><span></span><span class="caret" aria-hidden="true">▾</span>
           </button>
           <ul id="car-list" class="car-list" role="listbox" aria-label="Car" tabindex="-1" hidden></ul>
@@ -104,9 +125,9 @@
       <div class="tab-body" id="tab-values"><table class="values" id="values"></table></div>
       <div class="tab-body" id="tab-laps" hidden>
         <div class="row">
-          <button id="set-line" class="secondary" title="Laps start and finish where the car is now">Start/finish here</button>
-          <button id="auto-line" class="secondary">Find it</button>
-          <button id="no-line" class="secondary">No laps</button>
+          <button id="set-line" class="ghost small" title="Laps start and finish where the car is now"><svg class="ico"><use href="#i-flag"/></svg>Start/finish here</button>
+          <button id="auto-line" class="ghost small">Find it</button>
+          <button id="no-line" class="ghost small">No laps</button>
         </div>
         <p class="muted small" id="laps-note"></p>
         <table class="laps" id="laps"></table>
@@ -116,17 +137,19 @@
 
     <section class="transport">
       <div class="splitter split-chart" id="split-chart" role="separator" aria-orientation="horizontal" aria-label="Resize the map and the chart" title="Drag to resize; double-click for the usual size"></div>
-      <div class="row controls">
-        <button id="back" class="secondary icon" title="Back 5 s (←)" aria-label="Back 5 seconds">⏪</button>
-        <button id="play" class="icon play" title="Play or pause (space)" aria-label="Play">▶</button>
-        <button id="fwd" class="secondary icon" title="On 5 s (→)" aria-label="On 5 seconds">⏩</button>
-        <label>Speed <select id="rate">
+      <div class="controls">
+        <div class="buttons">
+          <button id="back" class="round" title="Back 5 s (←)" aria-label="Back 5 seconds"><svg class="ico"><use href="#i-back"/></svg></button>
+          <button id="play" class="round play" title="Play or pause (space)" aria-label="Play"><svg class="ico"><use href="#i-play"/></svg></button>
+          <button id="fwd" class="round" title="On 5 s (→)" aria-label="On 5 seconds"><svg class="ico"><use href="#i-fwd"/></svg></button>
+        </div>
+        <span class="clock"><strong id="clock">0:00.0</strong><span class="of">/ <span id="duration">0:00</span></span></span>
+        <label><span>Speed</span> <select id="rate">
           <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option>
           <option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
         </select></label>
-        <span class="clock"><strong id="clock">0:00.0</strong> / <span id="duration">0:00</span></span>
         <span class="spacer"></span>
-        <label>Chart <select id="window">
+        <label><span>Chart</span> <select id="window">
           <option value="30">30 s</option><option value="60" selected>1 min</option><option value="180">3 min</option><option value="0">Whole drive</option>
         </select></label>
       </div>
