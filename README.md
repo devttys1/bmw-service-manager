@@ -157,7 +157,7 @@ computer that plays them. Nothing is uploaded.
 
 ![Video overlay: speed and RPM, pedal, boost, g-forces, the track map and a lap timer over the video, with its sync and gauge settings beside it](screenshots/overlay.jpg)
 
-*The video here is the sample drive's own chase view, recorded from Drive replay, standing in for a camera's.*
+*A placeholder: a stock in-car video (by Dimitri Baret, [Pexels](https://www.pexels.com/video/15828653/)) lined up by hand with the sample drive's start, so the gauges aren't that car's own.*
 
 **Light or dark.** Under **Advanced** at the bottom of the page, **Appearance** chooses Light,
 Dark or System (follow the computer).
