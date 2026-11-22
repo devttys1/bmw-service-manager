@@ -7,7 +7,7 @@ instrument cluster shows, and resets them once the work is done.
 It runs on a Mac, a Windows PC or Linux, in your web browser, and talks to the car through an
 ENET cable. Nothing else needs installing: each download has everything it needs.
 
-![BMW Service Manager in a web browser](screenshot.png)
+![The Service history page with three records, in a web browser](screenshots/service-history.png)
 
 Works with BMW F, G and I-series cars with a CIC, NBT, NBT Evo, ENTRY or CHAMP2 head unit.
 It was developed on an F48 X1 with NBT Evo; other cars should work but haven't all been tried.
@@ -142,6 +142,10 @@ wheels. The iPhone's GPS runs a second or two late: the page finds by how much a
 the map's imagery and terrain come from the internet (the NSW, Queensland and Tasmanian
 governments, Esri, OpenTopoMap, OpenStreetMap, AWS).
 
+![Drive replay: the sample drive down Conrod Straight at 191 km/h, with its gauges, pitch and roll, g-g circle and charts](screenshots/replay.jpg)
+
+![Drive replay with X-ray on: the X1's drivetrain inside the car, with engine torque and what xDrive sends to the rear axle, in the bends at Mount Panorama](screenshots/replay-xray.jpg)
+
 **Video overlay.** The **Video overlay** page puts a drive's gauges over a video of it: open
 the video (MP4 or MOV, from a GoPro or a phone) and the drive's `.bblog.gz` (or the logger's `.BLR`). Speed and RPM,
 boost, pedal, g-forces, the track map, a lap timer, pitch and roll and any other values go over
@@ -150,6 +154,10 @@ or two; for other cameras the file's creation time is a start, then nudge it or 
 moment was in the drive. **Export MP4** draws every frame with the gauges and saves a new video
 with the sound. It needs Chrome, Edge or Safari 17 or later (WebCodecs); HEVC videos need a
 computer that plays them. Nothing is uploaded.
+
+![Video overlay: speed and RPM, pedal, boost, g-forces, the track map and a lap timer over the video, with its sync and gauge settings beside it](screenshots/overlay.jpg)
+
+*The video here is the sample drive's own chase view, recorded from Drive replay, standing in for a camera's.*
 
 **Light or dark.** Under **Advanced** at the bottom of the page, **Appearance** chooses Light,
 Dark or System (follow the computer).
