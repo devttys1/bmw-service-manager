@@ -16,11 +16,11 @@ It was developed on an F48 X1 with NBT Evo; other cars should work but haven't a
 
 | Your computer | Download |
 | --- | --- |
-| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.4.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.4.0/BMW-Service-Manager-1.4.0-macOS.zip) |
-| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.4.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.4.0/BMW-Service-Manager-1.4.0-Windows.zip) |
-| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.4.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.4.0/BMW-Service-Manager-1.4.0-Linux.tar.gz) |
+| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.5.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-macOS.zip) |
+| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.5.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-Windows.zip) |
+| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.5.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-Linux.tar.gz) |
 
-This is version 1.4.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
+This is version 1.5.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
 
 ## Start it
 
@@ -57,7 +57,7 @@ how it finds the car. It needs macOS 13 (Ventura) or later.
 
 ### Windows
 
-1. Right-click the downloaded **BMW-Service-Manager-1.4.0-Windows.zip**, choose **Extract All...**,
+1. Right-click the downloaded **BMW-Service-Manager-1.5.0-Windows.zip**, choose **Extract All...**,
    then **Extract**. Use the extracted **BMW Service Manager** folder, not the zip.
 2. Double-click **Try without a car**.
 3. The first time, Windows may say **Windows protected your PC**. Click **More info**, then
@@ -72,7 +72,7 @@ how it finds the car.
 ### Linux
 
 1. Extract the download: right-click it and choose **Extract Here**, or in a terminal
-   `tar xzf BMW-Service-Manager-1.4.0-Linux.tar.gz`.
+   `tar xzf BMW-Service-Manager-1.5.0-Linux.tar.gz`.
 2. Run **try-without-a-car.sh** in the **BMW Service Manager** folder (double-click it and
    choose **Run in Terminal**, or run it from a terminal).
 3. Your web browser shows BMW Service Manager. If it doesn't open by itself, open the address
@@ -127,7 +127,8 @@ iPhone and iPad app) scans to copy it across. The code holds the records themsel
 
 **Drive replay.** The **Drive replay** page (top right) plays back a drive recorded with the
 Logger in Boostbook, the iPhone app: open its `.bblog.gz` file, or click **Sample drive** to
-see one. The car moves over a 3D map of the terrain, turning, pitching and rolling as it did,
+see one. A Boostbook BLE CAN Logger's session files (`.BLR`) open straight from its USB drive,
+and **.bblog** saves one as a drive log for the iPhone app. The car moves over a 3D map of the terrain, turning, pitching and rolling as it did,
 with lap times, charts of every value and a g-g circle. In New South Wales, Queensland and
 Tasmania the map uses the state government's aerial photos, sharp enough to see the kerbs;
 elsewhere, Esri's satellite imagery. The X-ray view shows the drivetrain inside the car:
@@ -140,6 +141,15 @@ and car view to resize them. xDrive's own figure is how much torque its clutch i
 wheels. The iPhone's GPS runs a second or two late: the page finds by how much and allows for it. **Google Earth (.kml)** and **CSV** export it. The file is read in the browser, not uploaded;
 the map's imagery and terrain come from the internet (the NSW, Queensland and Tasmanian
 governments, Esri, OpenTopoMap, OpenStreetMap, AWS).
+
+**Video overlay.** The **Video overlay** page puts a drive's gauges over a video of it: open
+the video (MP4 or MOV, from a GoPro or a phone) and the drive's `.bblog.gz` (or the logger's `.BLR`). Speed and RPM,
+boost, pedal, g-forces, the track map, a lap timer, pitch and roll and any other values go over
+it; drag them where you want them. A GoPro's own GPS and accelerometer line the two up to a frame
+or two; for other cameras the file's creation time is a start, then nudge it or say when one
+moment was in the drive. **Export MP4** draws every frame with the gauges and saves a new video
+with the sound. It needs Chrome, Edge or Safari 17 or later (WebCodecs); HEVC videos need a
+computer that plays them. Nothing is uploaded.
 
 **Light or dark.** Under **Advanced** at the bottom of the page, **Appearance** chooses Light,
 Dark or System (follow the computer).
@@ -188,7 +198,7 @@ and its packages (pinned in `packaging/requirements.txt`).
 Free for personal and other non-commercial use, under the
 [PolyForm Noncommercial License 1.0.0](LICENSE.md). Commercial use, such as using it in a
 paid service business or selling it, isn't allowed. The Python runtime and packages included
-in the downloads keep their own licenses, as do three.js, MapLibre and the Archivo, Inter and
+in the downloads keep their own licenses, as do three.js, MapLibre, mp4-muxer and the Archivo, Inter and
 IBM Plex Mono fonts (SIL Open Font License, `static/vendor`). The
 car models in `bmw_service_manager/static/cars` are by Ddiaz Design on Sketchfab, adapted for
 Drive replay and shared under their own licenses (CC BY-NC-SA 4.0, one CC BY 4.0), each

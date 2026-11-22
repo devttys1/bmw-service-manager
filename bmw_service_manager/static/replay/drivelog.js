@@ -16,6 +16,8 @@
 //
 // Car axes follow ISO 8855: forward, left, up. Lateral g and yaw rate are positive to the left.
 
+import { isBlr, blrToLog } from "./blr.js";
+
 export const RATE = 25;
 const G = 9.80665;
 const DEG = Math.PI / 180;
@@ -39,12 +41,17 @@ const PRESETS = {
 
 // MARK: reading
 
-/** The log's text, from a File, Blob, ArrayBuffer or Response: gzipped (.bblog.gz) or not. */
-export async function readLog(source) {
+/**
+ * The log's text, from a File, Blob, ArrayBuffer or Response: gzipped (.bblog.gz) or not, or a
+ * BLE CAN Logger session (.BLR) turned into a drive log. `name` is the file's, for a session
+ * without a GPS time (a File's own name otherwise).
+ */
+export async function readLog(source, name = source?.name ?? "") {
   let bytes;
   if (source instanceof ArrayBuffer) bytes = new Uint8Array(source);
   else if (source instanceof Uint8Array) bytes = source;
   else bytes = new Uint8Array(await source.arrayBuffer());
+  if (isBlr(bytes, name)) return blrToLog(bytes, name);
   if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
     return await new Response(stream).text();
@@ -57,7 +64,7 @@ export function parseLog(text) {
   const lines = text.split("\n");
   let header = null;
   try { header = JSON.parse(lines[0]); } catch { /* not JSON */ }
-  if (!header || header.format !== "boostbook-drive") throw new Error("This isn't a Boostbook drive log (.bblog).");
+  if (!header || header.format !== "boostbook-drive") throw new Error("This isn't a Boostbook drive log (.bblog) or a logger session (.BLR).");
   if (header.version > 1) throw new Error("This log is from a newer Boostbook. Update the web app to open it.");
   const raw = {
     header, motion: [], gps: [], baro: [], car: [], marks: [], notes: [], end: null,

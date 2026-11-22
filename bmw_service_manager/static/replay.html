@@ -37,13 +37,15 @@
     <nav class="pages" aria-label="Pages">
       <a href="/">Service history</a>
       <a href="/replay" aria-current="page">Drive replay</a>
+      <a href="/overlay">Video overlay</a>
     </nav>
     <div class="actions">
       <button id="sample" class="ghost">Sample drive</button>
       <span class="divider" aria-hidden="true"></span>
       <button id="export-kml" class="ghost" disabled title="A KML file for Google Earth: the path, and the car's track with its heading, pitch, roll and values to play back with Earth's time slider"><svg class="ico"><use href="#i-download"/></svg>Google Earth</button>
       <button id="export-csv" class="ghost" disabled title="Ten rows a second: time, position, attitude and every value"><svg class="ico"><use href="#i-download"/></svg>CSV</button>
-      <label class="file-btn primary"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
+      <button id="export-bblog" class="ghost" disabled title="The drive log itself (.bblog.gz): a logger's .BLR session turned into the log Boostbook's Logger tab and this page open"><svg class="ico"><use href="#i-download"/></svg>.bblog</button>
+      <label class="file-btn primary"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden></label>
     </div>
   </header>
 
@@ -52,9 +54,9 @@
       <img class="hero-icon" src="/static/boostbook-icon.svg" alt="" width="76" height="76">
       <p class="eyebrow">Drive replay</p>
       <h2>Watch a drive again</h2>
-      <p class="lead">Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here.</p>
+      <p class="lead">Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here. A Boostbook Logger's <code>.BLR</code> files open straight from its USB drive.</p>
       <div class="row center">
-        <label class="file-btn primary large"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open2" type="file" accept=".bblog,.gz,application/gzip" hidden></label>
+        <label class="file-btn primary large"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open2" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden></label>
         <button id="sample2" class="ghost large"><svg class="ico"><use href="#i-play"/></svg>Try the sample drive</button>
       </div>
       <ul class="features">

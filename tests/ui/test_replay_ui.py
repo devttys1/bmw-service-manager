@@ -3,7 +3,10 @@
 Map imagery and terrain come from the internet; the checks here don't depend on them.
 """
 
+import gzip
+import json
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +16,9 @@ from playwright.sync_api import Page, expect  # noqa: E402
 from werkzeug.serving import make_server  # noqa: E402
 
 from bmw_service_manager.web import create_app  # noqa: E402
+
+# A BLE CAN Logger session, as on its USB drive (tests/fixtures/README.md).
+BLR = Path(__file__).parent.parent / "fixtures/LOG_00042_20261111-0805.BLR"
 
 
 @pytest.fixture
@@ -75,6 +81,45 @@ def test_not_a_drive_log(replay: Page, tmp_path):
     bad.write_text('{"format": "stampbook-history"}\n')
     replay.set_input_files("#open2", str(bad))
     expect(replay.locator("#load-error")).to_contain_text("isn't a Boostbook drive log")
+
+
+def test_opens_a_logger_session(replay: Page, tmp_path):
+    """A .BLR straight from the logger plays as the iOS app imports it (#31)."""
+    replay.set_input_files("#open2", str(BLR))
+    replay.wait_for_function("window.replay?.state.drive", timeout=20000)
+    expect(replay.locator("#player")).to_be_visible()
+    expect(replay.locator("#drive-name")).to_contain_text("(logger)")
+    drive = replay.evaluate("""() => { const d = window.replay.state.drive;
+        return { fixes: d.raw.gps.length, duration: d.duration, started: d.started.toISOString(), source: d.header.source,
+                 channels: d.raw.channels.map((c) => c.name), readings: d.raw.car.length, notes: d.raw.notes.map((n) => n.text) }; }""")
+    assert drive["fixes"] == 20 and abs(drive["duration"] - 21) < 0.1
+    assert drive["started"] == "2026-11-11T08:05:00.000Z", "the GPS's time"
+    assert drive["source"] == {"device": "ble-can-logger", "file": BLR.name, "session": 42, "firmware": "0.1.0"}
+    assert set(drive["channels"]) == {"RPM", "Speed", "Coolant", "Throttle", "Battery"} and 100 <= drive["readings"] <= 120
+    assert "Part of the log was lost (a bad storage block)" in drive["notes"]
+    assert "3 of the logger's records are missing" in drive["notes"] and "6 damaged bytes in the logger's file were skipped" in drive["notes"]
+    # Saved as a drive log: gzipped, and it opens again as the same drive.
+    with replay.expect_download() as saved:
+        replay.click("#export-bblog")
+    assert saved.value.suggested_filename.endswith("(logger).bblog.gz")
+    lines = gzip.decompress(Path(saved.value.path()).read_bytes()).decode().splitlines()
+    assert json.loads(lines[0])["source"]["device"] == "ble-can-logger" and sum('"gps"' in line for line in lines[1:]) == 20
+    assert "SAMPLE001" not in "".join(lines), "no VIN"
+    copy = tmp_path / saved.value.suggested_filename
+    copy.write_bytes(Path(saved.value.path()).read_bytes())
+    replay.set_input_files("#open", str(copy))
+    replay.wait_for_function("window.replay.state.drive.raw.gps.length === 20 && window.replay.state.drive.raw.car.length > 99")
+    # Without the session header (its first page lost), by its name: the same drive.
+    cut = tmp_path / BLR.name.lower()
+    cut.write_bytes(BLR.read_bytes()[64:])
+    replay.set_input_files("#open", str(cut))
+    replay.wait_for_function("window.replay.state.drive.header.source.file !== " + repr(BLR.name), timeout=20000)
+    assert replay.evaluate("window.replay.state.drive.raw.gps.length") == 20
+    # A session with no fix says so.
+    nofix = tmp_path / "LOG_00043_NOTIME.BLR"
+    nofix.write_bytes(BLR.read_bytes()[:64])
+    replay.set_input_files("#open", str(nofix))
+    expect(replay.locator("#load-error")).to_contain_text("logger session has no GPS fixes")
 
 
 def test_cars_get_their_own_model(replay: Page):

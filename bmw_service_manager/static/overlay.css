@@ -1,0 +1,99 @@
+/* Video Overlay: the video fills the left, the transport below it, the settings on the right.
+   On top of style.css and replay.css (the replay page's dark tokens and controls). */
+
+/* Before both files are open: two slots to fill. */
+.slots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin: 0 0 6px; text-align: left; }
+.slot {
+  display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px 16px; border-radius: 14px; cursor: pointer;
+  background: rgb(255 255 255 / 0.03); border: 1px dashed #34466f; transition: border-color 0.15s, background 0.15s;
+}
+.slot:hover, .slot:focus-within { border-color: var(--sky); background: rgb(108 180 255 / 0.06); }
+.slot > .ico { width: 22px; height: 22px; color: var(--sky); }
+.slot .tick { width: 18px; height: 18px; margin-left: auto; color: var(--green); visibility: hidden; }
+.slot.done { border-style: solid; border-color: rgb(52 211 153 / 0.45); }
+.slot.done .tick { visibility: visible; }
+.slot-text { display: flex; flex-direction: column; min-width: 0; }
+.slot-text strong { font: 650 14px/1.3 var(--display); font-stretch: 108%; }
+.slot-text span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The editor. */
+.editor {
+  flex: 1; min-height: 0; display: grid; padding: 0 !important;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "stage side" "transport side";
+}
+.ov-stage { grid-area: stage; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: #050b19; }
+.frame { position: relative; max-width: 100%; max-height: 100%; box-shadow: 0 18px 50px rgb(0 0 0 / 0.5); border-radius: 4px; overflow: hidden; }
+.frame video { display: block; width: 100%; height: 100%; background: #000; }
+.frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.frame canvas.over { cursor: grab; }
+.frame canvas.dragging { cursor: grabbing; }
+.frame-hint {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; pointer-events: none;
+  font: 500 11px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--yellow);
+  background: rgb(11 22 48 / 0.75); border: 1px solid rgb(255 209 102 / 0.3);
+}
+
+.ov-transport { grid-area: transport; padding: 10px 16px 12px; background: var(--card); border-top: 1px solid var(--hairline); }
+.ov-transport .controls { margin: 0; flex-wrap: nowrap; }
+.scrub-wrap { flex: 1; min-width: 0; }
+.scrub { width: 100%; height: 40px; display: block; cursor: pointer; border-radius: 9px; background: var(--bg); border: 1px solid var(--hairline); touch-action: none; }
+.drive-clock strong { font-size: 16px; color: var(--sky); }
+
+.ov-side { grid-area: side; min-height: 0; overflow-y: auto; background: var(--card); border-left: 1px solid var(--hairline); padding: 6px 0 20px; }
+.card { padding: 12px 16px 14px; border-bottom: 1px solid var(--hairline); }
+.card:last-child { border-bottom: 0; }
+.card h3 { margin: 0 0 8px; font: 650 14px/1.2 var(--display); font-stretch: 108%; letter-spacing: 0; }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.card-head h3 { margin: 0; }
+.card .row { margin: 8px 0; gap: 8px; align-items: flex-end; }
+.card .row > label { display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+.card .row > label.grow { flex: 1; min-width: 0; }
+.card input[type="text"] {
+  height: 30px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--raised); color: var(--text);
+  font: 500 12.5px/1 var(--display); font-variant-numeric: tabular-nums; width: 100%; min-width: 0;
+}
+.card select { width: 100%; }
+.hint { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: var(--faint); }
+
+.files { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 12.5px; }
+.files dt { font: 500 10.5px/1.6 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.files dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+.files dd small { display: block; color: var(--muted); }
+
+.sync-status { margin: 0 0 8px; padding: 8px 10px; border-radius: 9px; font-size: 12.5px; line-height: 1.45; background: rgb(255 255 255 / 0.03); border: 1px solid var(--hairline); }
+.sync-status.good { border-color: rgb(52 211 153 / 0.35); background: rgb(52 211 153 / 0.06); }
+.sync-status.check { border-color: rgb(255 209 102 / 0.35); background: rgb(255 209 102 / 0.06); }
+.sync-chart { width: 100%; height: 92px; display: block; border-radius: 9px; background: var(--bg); border: 1px solid var(--hairline); cursor: grab; touch-action: none; }
+.sync-chart.dragging { cursor: grabbing; }
+.nudge { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.replay .nudge button.small { flex: 1; padding: 0 4px; min-width: 0; font-variant-numeric: tabular-nums; }
+.nudge output { flex: 1.6; text-align: center; font: 700 14px/1 var(--display); font-stretch: 105%; font-variant-numeric: tabular-nums; color: var(--sky); }
+.by-hand { margin-top: 10px; }
+.by-hand summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.by-hand summary:hover { color: var(--text); }
+
+.widgets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.widgets label { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; cursor: pointer; }
+.widgets label.na { color: var(--faint); cursor: default; }
+.values-pick { margin-top: 8px; }
+.values-pick .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.replay .values-pick .chips button { height: 25px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; color: var(--muted); background: rgb(255 255 255 / 0.03); border-color: var(--hairline); }
+.replay .values-pick .chips button.on { color: var(--text); background: rgb(108 180 255 / 0.14); border-color: rgb(108 180 255 / 0.45); }
+
+.replay button.wide { width: 100%; height: 38px; margin-top: 4px; font-size: 13.5px; }
+.progress { margin-top: 10px; }
+.progress .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.progress .bar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--boost), var(--sky)); transition: width 0.2s; }
+.progress .row { justify-content: space-between; align-items: center; margin: 6px 0 0; }
+.progress.done .bar span { background: var(--green); }
+
+@media (max-width: 900px) {
+  body.overlay-page { height: auto; overflow: auto; }
+  .editor { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "stage" "transport" "side"; }
+  .ov-stage { padding: 0; }
+  .ov-side { border-left: 0; overflow: visible; }
+  .slots { grid-template-columns: 1fr; }
+  .ov-transport .controls { flex-wrap: wrap; }
+}

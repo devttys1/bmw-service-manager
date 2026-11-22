@@ -20,9 +20,14 @@ const COLOUR_BY = ["GPS speed", "Height", "Sideways g", "Forward g", "Pedal", "R
 async function open(source, label) {
   $("#load-error").hidden = true;
   try {
-    const text = await readLog(source);
+    const text = await readLog(source, label);
     const drive = processLog(parseLog(text));
-    if (!drive.hasGps) throw new Error("This drive has no GPS fixes to draw. Was Location allowed for Boostbook?");
+    drive.text = text;
+    if (!drive.hasGps) {
+      throw new Error(drive.header.source?.device === "ble-can-logger"
+        ? "This logger session has no GPS fixes to draw: the logger had no fix while it recorded."
+        : "This drive has no GPS fixes to draw. Was Location allowed for Boostbook?");
+    }
     show(drive, label);
   } catch (e) {
     console.error(e);
@@ -38,7 +43,7 @@ function show(drive, label) {
   state.t = 0;
   $("#empty").hidden = true;
   $("#player").hidden = false;
-  $("#export-kml").disabled = $("#export-csv").disabled = false;
+  $("#export-kml").disabled = $("#export-csv").disabled = $("#export-bblog").disabled = false;
   const name = drive.header.name || label || "Drive";
   $("#drive-name").textContent = `${name}${drive.started ? ` · ${drive.started.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}`;
   document.title = `${name} · Drive Replay`;
@@ -443,8 +448,8 @@ function setMode(mode) {
   state.dirty = true;
 }
 
-function download(text, name, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function download(content, name, type) {
+  const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -549,6 +554,11 @@ $("#auto-line").addEventListener("click", () => { state.line = findStartLine(sta
 $("#no-line").addEventListener("click", () => { state.line = null; setLaps(); });
 $("#export-kml").addEventListener("click", () => download(toKml(state.drive, { laps: state.laps }), `${fileName()}.kml`, "application/vnd.google-earth.kml+xml"));
 $("#export-csv").addEventListener("click", () => download(toCsv(state.drive), `${fileName()}.csv`, "text/csv"));
+// The drive log, gzipped as the Logger tab shares it: a .BLR's, converted, opens anywhere a .bblog does.
+$("#export-bblog").addEventListener("click", async () => {
+  const gz = new Blob([state.drive.text]).stream().pipeThrough(new CompressionStream("gzip"));
+  download(await new Response(gz, { headers: { "Content-Type": "application/gzip" } }).blob(), `${fileName()}.bblog.gz`);
+});
 
 document.addEventListener("keydown", (e) => {
   if (!state.drive || e.target.closest("input, select, textarea, #car-pick")) return;

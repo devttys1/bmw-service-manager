@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" class="replay">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Video Overlay</title>
+  <link rel="icon" href="/static/boostbook-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/vendor/fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/replay.css">
+  <link rel="stylesheet" href="/static/overlay.css">
+</head>
+<body class="replay overlay-page">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.53.85l10.2-6.5a1 1 0 0 0 0-1.7L9.53 4.65A1 1 0 0 0 8 5.5Z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h4l2 2h7A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 5v14M16.5 5v14M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0-4-4m4 4 4-4M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 12-4.9M19 12a7 7 0 0 1-12 4.9M17 3.5v3.8h-3.8M7 20.5v-3.8h3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <header class="replay-bar">
+    <a class="brand" href="/overlay" aria-label="Video Overlay">
+      <img src="/static/boostbook-icon.svg" alt="" width="30" height="30">
+      <span class="brand-text">
+        <h1>Video Overlay</h1>
+        <span class="sub" id="title-sub">Gauges from a drive log, over a GoPro or phone video</span>
+      </span>
+    </a>
+    <nav class="pages" aria-label="Pages">
+      <a href="/">Service history</a>
+      <a href="/replay">Drive replay</a>
+      <a href="/overlay" aria-current="page">Video overlay</a>
+    </nav>
+    <div class="actions">
+      <label class="file-btn ghost"><svg class="ico"><use href="#i-film"/></svg>Video…<input id="open-video" type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v,.lrv" hidden></label>
+      <label class="file-btn ghost"><svg class="ico"><use href="#i-open"/></svg>Drive…<input id="open-drive" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden></label>
+    </div>
+  </header>
+
+  <section id="empty" class="empty">
+    <div class="drop" id="drop">
+      <img class="hero-icon" src="/static/boostbook-icon.svg" alt="" width="76" height="76">
+      <p class="eyebrow">Video overlay</p>
+      <h2>Your gauges on your video</h2>
+      <p class="lead">Drop a <strong>video</strong> from a GoPro or a phone and the <strong>drive</strong> Boostbook's Logger recorded at the same time. Speed, RPM, boost, g-forces, the track and lap times go over it, lined up to the frame, and it's saved as a new MP4.</p>
+      <div class="slots">
+        <label class="slot" id="slot-video">
+          <svg class="ico"><use href="#i-film"/></svg>
+          <span class="slot-text"><strong>Video</strong><span id="slot-video-name">MP4 or MOV: GoPro, iPhone, Android</span></span>
+          <svg class="ico tick"><use href="#i-check"/></svg>
+          <input id="open-video2" type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v,.lrv" hidden>
+        </label>
+        <label class="slot" id="slot-drive">
+          <svg class="ico"><use href="#i-open"/></svg>
+          <span class="slot-text"><strong>Drive log</strong><span id="slot-drive-name">.bblog.gz from the Logger tab, or the logger's .BLR</span></span>
+          <svg class="ico tick"><use href="#i-check"/></svg>
+          <input id="open-drive2" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden>
+        </label>
+      </div>
+      <p class="row center"><button id="sample-drive" class="ghost small">Or use the sample drive</button></p>
+      <ul class="features">
+        <li><strong>Lined up for you</strong><span>A GoPro's own GPS and accelerometer find the moment; anything else lines up by hand in a few clicks</span></li>
+        <li><strong>Drag the gauges</strong><span>Put each where you want it, at the size you want</span></li>
+        <li><strong>What you see is what you get</strong><span>The export draws every frame the way the preview does</span></li>
+        <li><strong>Stays here</strong><span>The video is read and made in this browser; nothing is uploaded</span></li>
+      </ul>
+      <p class="muted small">Exporting needs a browser with WebCodecs: Chrome, Edge or Safari 17 and later. HEVC (H.265) videos, the default on newer GoPros and iPhones, need a computer that can play them.</p>
+      <p id="load-error" class="err" hidden></p>
+    </div>
+  </section>
+
+  <main id="editor" class="editor" hidden>
+    <section class="ov-stage">
+      <div class="frame" id="frame">
+        <video id="video" playsinline preload="auto"></video>
+        <canvas id="overlay"></canvas>
+        <div class="frame-hint" id="frame-hint" hidden>Outside the drive</div>
+      </div>
+    </section>
+
+    <section class="ov-transport">
+      <div class="controls">
+        <button id="play" class="round play" aria-label="Play"><svg class="ico"><use href="#i-play"/></svg></button>
+        <div class="clock"><strong id="clock">0:00.0</strong><span class="of" id="clock-of">/ 0:00</span></div>
+        <div class="scrub-wrap">
+          <canvas id="scrub" class="scrub" aria-label="Video timeline"></canvas>
+        </div>
+        <div class="clock drive-clock" title="Where this is in the drive"><span class="of">Drive</span><strong id="drive-clock">—</strong></div>
+      </div>
+    </section>
+
+    <aside class="ov-side">
+      <section class="card" id="card-files">
+        <h3>Files</h3>
+        <dl class="files">
+          <dt>Video</dt><dd id="video-info">—</dd>
+          <dt>Drive</dt><dd id="drive-info">—</dd>
+        </dl>
+      </section>
+
+      <section class="card" id="card-sync">
+        <div class="card-head">
+          <h3>Sync</h3>
+          <button id="auto-sync" class="ghost small" title="Line them up again from the video's telemetry or clock"><svg class="ico"><use href="#i-sync"/></svg>Auto</button>
+        </div>
+        <p class="sync-status" id="sync-status">—</p>
+        <canvas id="sync-chart" class="sync-chart" aria-label="The video's place in the drive: drag it along"></canvas>
+        <p class="hint">Drag the highlighted span to slide the video along the drive.<span id="sync-legend" hidden> Blue is the drive's speed, white the GoPro's.</span></p>
+        <div class="nudge" role="group" aria-label="Nudge the sync">
+          <button class="small" data-nudge="-1">−1 s</button>
+          <button class="small" data-nudge="-0.1">−0.1</button>
+          <button class="small" data-nudge="-frame" title="One frame">−1 f</button>
+          <output id="offset" title="Drive time at the video's start">—</output>
+          <button class="small" data-nudge="frame" title="One frame">+1 f</button>
+          <button class="small" data-nudge="0.1">+0.1</button>
+          <button class="small" data-nudge="1">+1 s</button>
+        </div>
+        <details class="by-hand">
+          <summary>Line up a moment by hand</summary>
+          <p class="hint">Pause the video where something clear happens (pulling away, a hard stop), then say when that was in the drive.</p>
+          <div class="row">
+            <label><span>Drive time</span><input id="mark-time" type="text" inputmode="decimal" placeholder="2:31.4" size="8"></label>
+            <button id="mark-apply" class="small">This frame is then</button>
+          </div>
+          <p class="hint" id="mark-help"></p>
+        </details>
+      </section>
+
+      <section class="card" id="card-gauges">
+        <div class="card-head">
+          <h3>Gauges</h3>
+          <button id="reset-layout" class="ghost small">Reset</button>
+        </div>
+        <ul class="widgets" id="widgets"></ul>
+        <div class="row">
+          <label class="grow"><span>Size</span><input id="scale" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+          <label><span>Speed in</span><select id="units"><option value="kmh">km/h</option><option value="mph">mph</option></select></label>
+        </div>
+        <div id="values-pick" class="values-pick">
+          <span class="eyebrow">Values to show (up to four)</span>
+          <div class="chips" id="value-chips"></div>
+        </div>
+        <p class="hint">Drag the gauges on the video to move them.</p>
+      </section>
+
+      <section class="card" id="card-export">
+        <h3>Export</h3>
+        <div class="row">
+          <label class="grow"><span>From</span><input id="range-start" type="text" size="7"></label>
+          <label class="grow"><span>To</span><input id="range-end" type="text" size="7"></label>
+          <button id="range-drive" class="ghost small" title="Only the part the drive covers">Drive only</button>
+        </div>
+        <div class="row">
+          <label class="grow"><span>Size</span><select id="out-size"><option value="0">As recorded</option><option value="2160">4K (2160p)</option><option value="1440">1440p</option><option value="1080" selected>1080p</option><option value="720">720p</option></select></label>
+          <label class="grow"><span>Quality</span><select id="out-quality"><option value="0.08">Smaller file</option><option value="0.14" selected>High</option><option value="0.22">Best</option></select></label>
+        </div>
+        <button id="export" class="primary wide"><svg class="ico"><use href="#i-download"/></svg>Export MP4</button>
+        <div class="progress" id="progress" hidden>
+          <div class="bar"><span id="progress-bar"></span></div>
+          <div class="row"><span id="progress-text" class="small muted">Starting…</span><button id="cancel" class="ghost small">Cancel</button></div>
+        </div>
+        <p class="hint" id="export-note"></p>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module" src="/static/overlay/overlay.js"></script>
+</body>
+</html>

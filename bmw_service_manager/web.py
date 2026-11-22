@@ -58,6 +58,11 @@ def create_app(default_host: str = "", default_port: int = hsfz.DIAG_PORT, simul
         """Drive Replay: plays back drives logged by the iOS app, in the browser."""
         return send_from_directory(STATIC, "replay.html")
 
+    @app.get("/overlay")
+    def overlay():
+        """Video Overlay: a drive's gauges over a video of it, lined up and exported, in the browser."""
+        return send_from_directory(STATIC, "overlay.html")
+
     @app.get("/static/<path:name>")
     def static_file(name):
         return send_from_directory(STATIC, name)
