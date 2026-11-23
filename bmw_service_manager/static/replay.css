@@ -318,34 +318,110 @@ table.laps tr.current td { background: rgb(108 180 255 / 0.1); }
 .clock strong { font: 700 22px/1 var(--display); font-stretch: 108%; letter-spacing: -0.01em; }
 .clock .of { font: 500 12.5px/1 var(--display); color: var(--muted); }
 .timeline { width: 100%; height: 42px; display: block; cursor: pointer; border-radius: 9px; background: var(--bg); border: 1px solid var(--hairline); touch-action: none; }
-.transport .chips {
+.chips {
   display: flex; flex-wrap: nowrap; gap: 6px; margin: 8px 0; overflow-x: auto; padding-bottom: 2px;
   mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
 }
-.transport .chips::-webkit-scrollbar { height: 0; }
-.transport .chip {
+.chips::-webkit-scrollbar { height: 0; }
+.chip {
   --tint: var(--muted);
   display: inline-flex; align-items: center; gap: 6px; flex: none; height: 26px; padding: 0 10px; border-radius: 999px;
   font: 500 12px/1 var(--body); color: var(--muted); background: rgb(255 255 255 / 0.03); border: 1px solid var(--hairline);
   cursor: pointer; user-select: none; transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.transport .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
-.transport .chip:hover { color: var(--text); border-color: var(--border); }
-.transport .chip.on { color: var(--text); background: color-mix(in srgb, var(--tint) 14%, transparent); border-color: color-mix(in srgb, var(--tint) 45%, transparent); }
-.transport .chip.on::before { background: var(--tint); box-shadow: none; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+.chip:hover { color: var(--text); border-color: var(--border); }
+.chip.on { color: var(--text); background: color-mix(in srgb, var(--tint) 14%, transparent); border-color: color-mix(in srgb, var(--tint) 45%, transparent); }
+.chip.on::before { background: var(--tint); box-shadow: none; }
 .chart { width: 100%; height: var(--chart-h, 170px); display: block; cursor: crosshair; border-radius: 9px; background: var(--bg); border: 1px solid var(--hairline); touch-action: none; }
 
+/* The map's settings button and the Chart and Car tabs are for the touch layout only. */
+.map-tools .more, .tabs .compact-only { display: none; }
+
 @media (max-width: 980px) {
-  body.replay { height: auto; overflow: auto; }
-  /* minmax: the chips scroll in one row, and mustn't widen the column to fit them all. */
-  .player { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60vh auto auto; grid-template-areas: "stage" "transport" "side"; }
-  .side { border-left: 0; border-top: 1px solid var(--hairline); }
-  .split-side { display: none; }
-  .tab-body { max-height: 420px; }
-  .hud { transform: scale(0.82); transform-origin: top left; }
   .replay-bar .actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
   .replay-bar .divider { display: none; }
   .replay-bar .sub { max-width: 70vw; }
   .features { grid-template-columns: 1fr; }
   .drop { padding: 28px 20px 24px; }
 }
+
+/* Fingers: handles wide enough to catch. */
+@media (pointer: coarse) {
+  .split-side { left: -11px; width: 22px; }
+  .split-side::after { left: 10px; }
+  .split-chart, .split-car { height: 22px; }
+  .split-chart { top: -11px; }
+  .split-car { bottom: -11px; }
+  .split-chart::after, .split-car::after { top: 10px; }
+  .replay button, .replay .chip, .replay select { touch-action: manipulation; }
+}
+
+/* The touch layout, for a phone either way up, an iPad upright and any small window (replay.js
+   sets body.compact): one screen that never scrolls. The map on top, play and the timeline
+   under it, and one panel of tabs (Chart, Car, Values, Laps, Drive) below, or beside the map when
+   it's wider than tall (body.landscape). Only the chosen tab draws. */
+body.replay.compact { height: 100vh; height: 100dvh; }
+/* minmax: the chips scroll in one row, and mustn't widen the column to fit them all. */
+.compact .player {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 0.85fr);
+  grid-template-areas: "stage" "transport" "side";
+}
+.compact.landscape .player {
+  grid-template-columns: minmax(0, 1.35fr) minmax(250px, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "stage side" "transport side";
+}
+.compact .side { border-left: 0; border-top: 1px solid var(--hairline); }
+.compact.landscape .side { border-top: 0; border-left: 1px solid var(--hairline); }
+.compact .splitter { display: none; }
+.compact .tabs .compact-only { display: inline-flex; }
+.compact .tabs { order: -1; margin: 6px 8px 0; }
+.compact .tab-body { padding: 4px 10px 10px; }
+/* The close-up and its dials only on the Car tab, filling the panel. */
+.compact .side .car-panel, .compact .side .instruments { display: none; }
+.compact .side[data-tab="car"] .car-panel { display: block; flex: 1; height: auto; min-height: 0; border-bottom: 0; }
+.compact .side[data-tab="car"] .instruments { display: grid; height: clamp(84px, 26%, 130px); border-bottom: 0; border-top: 1px solid var(--hairline); }
+.compact .car-caption { display: none; }
+/* The chart's tab: its values to pick, the chart filling what's left. */
+.compact #tab-chart:not([hidden]) { display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding-top: 6px; }
+.compact .chart-head { display: flex; align-items: center; gap: 8px; flex: none; }
+.compact .chart-head label { display: flex; align-items: center; flex: none; }
+.compact .chart-head label > span:first-child { display: none; }
+.compact .chart-head .chips { flex: 1; min-width: 0; margin: 0; }
+/* The values charted first: the row is too narrow to find them along it. */
+.compact .chart-head .chip.on { order: -1; }
+.compact #tab-chart .chart { flex: 1; min-height: 60px; height: auto; }
+
+.compact .transport { padding: 6px 10px 8px; }
+.compact .controls { gap: 6px 10px; margin-bottom: 6px; flex-wrap: nowrap; }
+.compact .controls .spacer { display: none; }
+.compact .controls label { margin-left: auto; }
+.compact .controls label > span:first-child { display: none; }
+.compact .clock strong { font-size: 18px; }
+.compact .clock .of { font-size: 11.5px; }
+.compact .timeline { height: 34px; }
+
+/* A smaller readout, without the height (the Values tab has it). */
+.compact .hud { left: 8px; top: 8px; min-width: 0; padding: 9px 11px; gap: 6px; border-radius: 12px; }
+.compact .hud-speed span { font-size: 34px; }
+.compact .hud-grid { gap: 1px 12px; }
+.compact .hud-grid strong { font-size: 12.5px; }
+.compact .hud-grid > :nth-child(n+9) { display: none; }
+.compact .hud-lap strong { font-size: 17px; }
+
+/* The camera on show, the rest behind the settings button. */
+.compact .map-tools { left: 8px; bottom: 26px; padding: 4px; gap: 6px 10px; max-width: calc(100% - 16px); }
+.compact .map-tools .more { display: inline-flex; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.compact .map-tools.open .more { color: var(--sky); }
+.compact .map-tools > label { display: none; }
+.compact .map-tools.open > label { display: flex; }
+.compact .map-tools.open { padding: 4px 10px 6px 4px; }
+.replay.compact .seg button { padding: 0 9px; font-size: 12px; }
+
+/* In the app (site.js EMBEDDED): its own title bar, and no file to drop. Text isn't for selecting. */
+.embedded .replay-bar { display: none; }
+.embedded .drop > :not(#load-error) { display: none; }
+.embedded .drop { background: none; border: 0; box-shadow: none; }
+body.embedded { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

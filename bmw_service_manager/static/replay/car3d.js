@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "../vendor/GLTFLoader.js";
 import { MeshoptDecoder } from "../vendor/meshopt_decoder.module.js";
 import { buildDrivetrain, heatColor } from "./drivetrain.js";
+import { CAR_MODELS, asset } from "./site.js";
 
 export { heatColor };
 
@@ -27,7 +28,7 @@ let index = null;
 /** The models there are (static/cars/models.json, from tools/car_model.py): file, title,
  *  series, the chassis codes each is and those it's the nearest to. */
 export function models() {
-  index ??= fetch("/static/cars/models.json").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  index ??= CAR_MODELS ? fetch(asset("cars/models.json")).then((r) => (r.ok ? r.json() : [])).catch(() => []) : Promise.resolve([]);
   return index;
 }
 
@@ -55,7 +56,7 @@ const loaded = new Map();
 export function loadModel(entry) {
   if (!loaded.has(entry.file)) {
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-    loaded.set(entry.file, loader.loadAsync(`/static/cars/${entry.file}`).then((gltf) => {
+    loaded.set(entry.file, loader.loadAsync(asset(`cars/${entry.file}`)).then((gltf) => {
       const scene = gltf.scene.getObjectByName("car");
       return { scene, info: scene.userData };
     }));

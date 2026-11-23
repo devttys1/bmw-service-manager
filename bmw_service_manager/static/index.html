@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BMW Service History</title>
+  <title>Service History · Boostbook for Desktop</title>
   <link rel="icon" href="/static/boostbook-icon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/vendor/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/vendor/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
@@ -16,11 +16,11 @@
 <body>
   <header class="app-bar">
     <div class="inner">
-      <a class="brand" href="/" aria-label="BMW Service History">
+      <a class="brand" href="/" aria-label="Service History">
         <img src="/static/boostbook-icon.svg" alt="" width="34" height="34">
         <span class="brand-text">
-          <h1>BMW Service History</h1>
-          <span class="sub">CIC · NBT · NBT Evo · ENTRY · CHAMP2 head units over ENET</span>
+          <h1>Service History</h1>
+          <span class="sub">Boostbook for Desktop · BMW CIC, NBT, NBT Evo, ENTRY and CHAMP2 head units over ENET</span>
         </span>
       </a>
       <nav class="pages" aria-label="Pages">
@@ -35,6 +35,7 @@
   </header>
 
   <main>
+    <p id="update" class="update-line" role="status" hidden></p>
     <section class="card">
       <h2><span class="step">1</span>Vehicle</h2>
       <div class="row">
@@ -155,6 +156,9 @@
           <input type="checkbox" id="show-probe"></label>
         <label class="setting"><strong>Appearance</strong>
           <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <label class="setting"><span><strong>Check for updates</strong><br>
+          <span class="muted small">Once a day, asks the releases page whether there's a newer version. Nothing is installed by itself.</span></span>
+          <input type="checkbox" id="check-updates" checked></label>
         <div class="setting"><strong>Version</strong><span id="version" class="muted"></span></div>
       </div>
     </section>

@@ -10,7 +10,7 @@ struct LauncherApp: App {
     @StateObject private var server = Server.shared
 
     var body: some Scene {
-        WindowGroup("BMW Service Manager") {
+        WindowGroup("Boostbook for Desktop") {
             LauncherView()
                 .environmentObject(server)
                 .frame(width: 460)
@@ -137,7 +137,7 @@ struct LauncherView: View {
             HStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("BMW Service Manager").font(.title2.weight(.semibold))
+                    Text("Boostbook for Desktop").font(.title2.weight(.semibold))
                     status
                 }
             }
@@ -155,7 +155,7 @@ struct LauncherView: View {
                     .toggleStyle(.switch)
                     .help("Try everything with a simulated car before you plug in")
             }
-            Text("Keep this app open while you use BMW Service Manager in your browser. Quit it (⌘Q) to stop.")
+            Text("Keep this app open while you use Boostbook for Desktop in your browser. Quit it (⌘Q) to stop.")
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             DisclosureGroup("Details", isExpanded: $showLog) {

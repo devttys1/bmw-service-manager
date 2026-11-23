@@ -1,14 +1,14 @@
-/* BMW Service Manager, in the brand book's system: Paper and white in light, Midnight and
+/* Boostbook for Desktop, in the brand book's system: Paper and white in light, Midnight and
    Graphite in dark; Boost Blue for the main action (Sky for links and accents in dark); Archivo
    for headings and figures, Inter for text, IBM Plex Mono for labels and bytes. The status
    colours (oil due, overdue, carried out) stay Apple's system ones, as in the iOS app. */
 
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
-  src: url(/static/vendor/fonts/inter.woff2) format("woff2"); }
+  src: url(vendor/fonts/inter.woff2) format("woff2"); }
 @font-face { font-family: "Archivo"; font-style: normal; font-weight: 100 900; font-stretch: 62% 125%; font-display: swap;
-  src: url(/static/vendor/fonts/archivo.woff2) format("woff2"); }
+  src: url(vendor/fonts/archivo.woff2) format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap;
-  src: url(/static/vendor/fonts/ibm-plex-mono-500.woff2) format("woff2"); }
+  src: url(vendor/fonts/ibm-plex-mono-500.woff2) format("woff2"); }
 
 :root {
   --display: "Archivo", system-ui, sans-serif;
@@ -135,6 +135,12 @@ h1 { margin: 0; font: 650 18px/1.2 var(--display); font-stretch: 112%; letter-sp
 
 main { max-width: 1000px; margin: 0 auto; padding: 24px 20px 48px; }
 
+/* A newer version is out: one line above the cards (app.js, /api/update). */
+.update-line {
+  margin: 0 0 16px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 14px;
+}
+.update-line a { color: var(--accent); font-weight: 600; }
 .card {
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
   padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow);

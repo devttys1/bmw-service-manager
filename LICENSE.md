@@ -1,4 +1,4 @@
-Required Notice: Copyright 2026 devttys1 (https://github.com/devttys1/bmw-service-manager)
+Required Notice: Copyright 2026 devttys1 (https://github.com/devttys1/boostbook-for-desktop)
 
 # PolyForm Noncommercial License 1.0.0
 

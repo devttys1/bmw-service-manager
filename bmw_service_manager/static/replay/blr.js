@@ -1,21 +1,20 @@
-// The BLE CAN Logger's session files (.BLR), read in the browser and turned into a drive log, so
-// Drive Replay and Video Overlay open them straight from the logger's USB drive (#31).
+// The BLE CAN Logger's session files (.BLR), read in the browser, and turned into a drive log
+// (.bblog) for Drive Replay: the same reading and the same log as the iOS app's import
+// (ios-app/Sources/BMWService/BoostbookCore/Blr.swift), so a session plays the same wherever it's opened.
 //
-// The same reading as the Boostbook iOS app's import, which follows the logger's record schema
-// (format version 1): a 64-byte session header ("DLOG"), then
-// records: 0xA5, type, length, sequence, device time (µs), payload, CRC-16/CCITT-FALSE. Bytes that
-// aren't a record with a good CRC are skipped, so a file with a NAND gap or a torn page still
-// reads around the damage.
+// A .BLR file is a 64-byte session header, then records: 0xA5, type, length, sequence, device
+// time (µs), payload, CRC-16. The layout is generated from the logger's schema into
+// blr-schema.js (ios-app/tools/blr/gen_blr.py). Bytes that aren't a record with a good CRC are
+// skipped, so a file with a NAND gap or a torn page still reads around the damage.
 //
-// The session becomes the `.bblog` text the iOS app writes for it: the logger's GPS fixes as
-// `gps` (with `sv`), its OBD values as `car`, its events as `note`, its accelerometer as `acc`.
-// The VIN isn't written: logs get shared.
+// The log has the logger's GPS fixes as `gps` (with `sv`), its OBD values as `car`, its events as
+// `note` and its accelerometer as `acc`. It has no phone motion (`m`), which Drive Replay plays
+// without. The file never leaves the browser.
 
-const SYNC = 0xa5, HEADER = 64, RECORD = 16, CRC = 2, MAX_PAYLOAD = 512;
-const T = { GNSS_PVT: 1, OBD_PID: 2, UDS_DID: 3, CAN_RAW: 4, EVENT: 5, TIME_SYNC: 6, IMU: 7, VBAT: 8 };
+import { SYNC, MAX_PAYLOAD, CRC_SIZE, SESSION_HEADER as H, RECORD_HEADER as R, RECORD_TYPE, PAYLOAD, ENUM } from "./blr-schema.js";
 
-/** CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF), as the logger's records use. */
-export function crc16(bytes, from, to) {
+/** CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over bytes[from, to). */
+export function crc16(bytes, from = 0, to = bytes.length) {
   let crc = 0xffff;
   for (let i = from; i < to; i++) {
     crc ^= bytes[i] << 8;
@@ -24,91 +23,72 @@ export function crc16(bytes, from, to) {
   return crc;
 }
 
-/** Whether these bytes are a logger session: its header, or a .BLR file name (the first page lost). */
-export function isBlr(bytes, name = "") {
-  return (bytes.length >= 4 && String.fromCharCode(...bytes.subarray(0, 4)) === "DLOG") || /\.blr$/i.test(name);
+const MAGIC = [...H.magicText].map((c) => c.charCodeAt(0));
+
+/** Whether `bytes` start like a logger session (its header), for telling one from a .bblog. */
+export function looksLikeBlr(bytes, name = "") {
+  return MAGIC.every((b, i) => bytes[i] === b) || (/\.blr$/i.test(name) && bytes[0] === SYNC);
 }
 
-function readRecords(bytes, pos) {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+/** A .BLR file, read: { header, records: [{type, seq, tUs (BigInt), payload}], skippedBytes, missingRecords }. */
+export function readBlr(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const u16 = (i) => view.getUint16(i, true), u32 = (i) => view.getUint32(i, true);
+  let header = null, pos = 0;
+  if (bytes.length >= H.size && MAGIC.every((b, i) => bytes[H.magic + i] === b)) {
+    const vin = [...bytes.subarray(H.vin, H.vin + 17)].filter((b) => b !== 0);
+    header = {
+      version: u16(H.version), deviceId: [...bytes.subarray(H.deviceId, H.deviceId + 8)], fwVersion: u32(H.fwVersion),
+      sessionId: u32(H.sessionId), wakeReasons: u32(H.wakeReasons),
+      vin: vin.length === 17 ? String.fromCharCode(...vin) : null,
+    };
+    pos = Math.max(u16(H.headerSize), H.size);
+  }
   const records = [];
-  let skipped = 0, missing = 0, lastSeq = null;
-  while (pos + RECORD + CRC <= bytes.length) {
+  let skippedBytes = 0, missingRecords = 0, lastSeq = null;
+  while (pos + R.size + CRC_SIZE <= bytes.length) {
     if (bytes[pos] === SYNC) {
-      const n = dv.getUint16(pos + 2, true), end = pos + RECORD + n;
-      if (n <= MAX_PAYLOAD && end + CRC <= bytes.length && crc16(bytes, pos + 1, end) === dv.getUint16(end, true)) {
-        const seq = dv.getUint32(pos + 4, true);
-        if (lastSeq !== null && seq > lastSeq + 1) missing += seq - lastSeq - 1;
+      const n = u16(pos + R.len), end = pos + R.size + n;
+      if (n <= MAX_PAYLOAD && end + CRC_SIZE <= bytes.length && crc16(bytes, pos + 1, end) === u16(end)) {
+        const seq = u32(pos + R.seq);
+        if (lastSeq !== null && seq > ((lastSeq + 1) >>> 0)) missingRecords += seq - lastSeq - 1;
         lastSeq = seq;
-        records.push({ type: bytes[pos + 1], seq, tUs: dv.getBigUint64(pos + 8, true), payload: bytes.subarray(pos + RECORD, end) });
-        pos = end + CRC;
+        records.push({ type: bytes[pos + R.type], seq, tUs: view.getBigUint64(pos + R.tUs, true), payload: bytes.slice(pos + R.size, end) });
+        pos = end + CRC_SIZE;
         continue;
       }
     }
-    skipped++;
+    skippedBytes++;
     pos++;
   }
-  skipped += Math.max(0, bytes.length - pos);
-  return { records, skipped, missing };
+  skippedBytes += bytes.length - pos;
+  return { header, records, skippedBytes, missingRecords };
 }
 
-/** A .BLR file, read: its header (null if it has none) and its good records. */
-export function readBlr(bytes) {
-  let header = null, pos = 0;
-  if (bytes.length >= HEADER && String.fromCharCode(...bytes.subarray(0, 4)) === "DLOG") {
-    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const vin = [...bytes.subarray(28, 45)].filter((b) => b !== 0);
-    header = {
-      version: dv.getUint16(4, true), fwVersion: dv.getUint32(16, true), sessionId: dv.getUint32(20, true),
-      vin: vin.length === 17 ? String.fromCharCode(...vin) : null,
-    };
-    pos = Math.max(dv.getUint16(6, true), HEADER);
-  }
-  return { header, ...readRecords(bytes, pos) };
-}
-
-/** "LOG_00042_20261111-0805.BLR": the session's start, UTC, to the minute. */
-export function startInName(name) {
-  const m = /(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)/.exec(name || "");
-  return m ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])) : null;
-}
-
-/** u-blox UBX-NAV-PVT, the GNSS record's payload. */
+/** u-blox UBX-NAV-PVT, the GNSS record's payload; null if too short. */
 export function navPvt(p) {
   if (p.length < 92) return null;
-  const dv = new DataView(p.buffer, p.byteOffset, p.byteLength);
+  const v = new DataView(p.buffer, p.byteOffset, p.byteLength);
+  const i32 = (i) => v.getInt32(i, true), u32 = (i) => v.getUint32(i, true);
   const valid = p[11], fixType = p[20], flags = p[21];
   let date = null;
-  if ((valid & 3) === 3) {
-    date = new Date(Date.UTC(dv.getUint16(4, true), p[6] - 1, p[7], p[8], p[9], p[10]) + Math.max(0, dv.getInt32(16, true)) / 1e6);
+  if ((valid & 0x03) === 0x03) {   // validDate and validTime
+    const ms = Date.UTC(v.getUint16(4, true), p[6] - 1, p[7], p[8], p[9], p[10]);
+    date = new Date(ms + Math.max(0, i32(16)) / 1e6);
   }
   return {
-    fixType, satellites: p[23], date,
+    valid, fixType, flags, satellites: p[23],
+    lon: i32(24) * 1e-7, lat: i32(28) * 1e-7, altitude: i32(36) / 1000,
+    horizontalAccuracy: u32(40) / 1000, verticalAccuracy: u32(44) / 1000,
+    speed: i32(60) / 1000, course: i32(64) * 1e-5, speedAccuracy: u32(68) / 1000, courseAccuracy: u32(72) * 1e-5,
+    date,
+    /** A 2D or 3D fix (or GNSS + dead reckoning) the receiver vouches for. */
     usable: fixType >= 2 && fixType <= 4 && (flags & 1) !== 0,
-    lon: dv.getInt32(24, true) * 1e-7, lat: dv.getInt32(28, true) * 1e-7, alt: dv.getInt32(36, true) / 1000,
-    hacc: dv.getUint32(40, true) / 1000, vacc: fixType === 2 ? -1 : dv.getUint32(44, true) / 1000,
-    speed: dv.getInt32(60, true) / 1000, course: dv.getInt32(64, true) * 1e-5,
-    sacc: dv.getUint32(68, true) / 1000, cacc: dv.getUint32(72, true) * 1e-5,
   };
 }
 
-/** The OBD-II values the logger polls (its default list), by SAE J1979's formulas: [channel, value]. */
-export function obdValue(pid, d) {
-  const a = d.length >= 1 ? d[0] : null, ab = d.length >= 2 ? d[0] * 256 + d[1] : null;
-  switch (pid) {
-    case 0x04: return a === null ? null : ["Load", a * 100 / 255];
-    case 0x05: return a === null ? null : ["Coolant", a - 40];
-    case 0x0b: return a === null ? null : ["Manifold", a];
-    case 0x0c: return ab === null ? null : ["RPM", ab / 4];
-    case 0x0d: return a === null ? null : ["Speed", a];
-    case 0x0f: return a === null ? null : ["Intake air", a - 40];
-    case 0x11: return a === null ? null : ["Throttle", a * 100 / 255];
-    case 0x42: return ab === null ? null : ["Battery", ab / 1000];
-    default: return null;
-  }
-}
-
-/** The channels an imported session can have, as the iOS app's gauges describe them, in its order. */
+// The channels a session can have, as the app's gauges describe them (LiveData.swift's GAUGES,
+// then Blr.swift's own two), in the app's order: a log's channels are listed in this order.
 const CHANNELS = [
   { name: "RPM", unit: "rpm", group: "Engine", digits: 0, min: 0, max: 5000 },
   { name: "Coolant", unit: "°C", group: "Engine", digits: 0, min: 40, max: 130 },
@@ -120,131 +100,179 @@ const CHANNELS = [
   { name: "Manifold", unit: "kPa", group: "Engine", digits: 0, min: 0, max: 255 },
 ];
 
-/** What the logger's events say, in the log's notes (null: not worth a note). */
+/** A service 01 response's value (data: the bytes after the PID) by SAE J1979's formulas: [channel, value] or null. */
+export function obdValue(pid, d) {
+  const a = d.length >= 1 ? d[0] : null, ab = d.length >= 2 ? d[0] * 256 + d[1] : null;
+  const one = (name, f) => (a === null ? null : [name, f(a)]), two = (name, f) => (ab === null ? null : [name, f(ab)]);
+  switch (pid) {
+    case 0x04: return one("Load", (x) => (x * 100) / 255);
+    case 0x05: return one("Coolant", (x) => x - 40);
+    case 0x0b: return one("Manifold", (x) => x);
+    case 0x0c: return two("RPM", (x) => x / 4);
+    case 0x0d: return one("Speed", (x) => x);
+    case 0x0f: return one("Intake air", (x) => x - 40);
+    case 0x11: return one("Throttle", (x) => (x * 100) / 255);
+    case 0x42: return two("Battery", (x) => x / 1000);
+    default: return null;
+  }
+}
+
+/** What a logger event says, as a note in the log; null for the VIN (logs get shared). */
 export function eventNote(code, arg) {
-  switch (code) {
-    case 1: return "Logger started";
-    case 2: return "Engine started";
-    case 3: return "Engine stopped";
-    case 4: return "Logger session ended";
-    case 5: return null; // the VIN
-    case 6: return "Logger reached the car over ENET";
-    case 7: return "No ENET link: the logger reads the car over D-CAN";
-    case 8: return "Boostbook connected to the logger";
-    case 9: return "Boostbook disconnected from the logger";
-    case 10: return "Low battery: the logger shut down to save it";
-    case 11: return "GPS fix";
-    case 12: return `Logger error ${arg}`;
-    case 13: return "Part of the log was lost (a bad storage block)";
-    case 14: return `GPS assistance from the phone: ${(arg >>> 8) & 0xfff} frames taken` + ((arg >>> 20) > 0 ? `, ${arg >>> 20} refused` : "");
-    case 15: return `GPS first fix after ${(arg / 1000).toFixed(1)} s`;
-    case 16: return arg === 50 ? "GPS at 20 Hz while logging"
-      : arg > 0 ? `GPS at ${Math.trunc(1000 / arg)} Hz while logging: the module can't do 20 Hz` : `GPS rate ${arg}`;
+  switch (ENUM.EVENT_CODE[code]) {
+    case "BOOT": return "Logger started";
+    case "ENGINE_START": return "Engine started";
+    case "ENGINE_STOP": return "Engine stopped";
+    case "SESSION_END": return "Logger session ended";
+    case "VIN": return null;
+    case "ENET_LINK": return "Logger reached the car over ENET";
+    case "DCAN_ONLY": return "No ENET link: the logger reads the car over D-CAN";
+    case "TUNNEL_OPEN": return "Boostbook connected to the logger";
+    case "TUNNEL_CLOSE": return "Boostbook disconnected from the logger";
+    case "LOW_BATTERY": return "Low battery: the logger shut down to save it";
+    case "GNSS_FIX": return "GPS fix";
+    case "ERROR": return `Logger error ${arg}`;
+    case "NAND_GAP": return "Part of the log was lost (a bad storage block)";
+    case "GNSS_ASSIST": return `GPS assistance from the phone: ${(arg >>> 8) & 0xfff} frames taken` + (arg >>> 20 > 0 ? `, ${arg >>> 20} refused` : "");
+    case "GNSS_TTFF": return `GPS first fix after ${(arg / 1000).toFixed(1)} s`;
+    case "GNSS_RATE": return arg === 50 ? "GPS at 20 Hz while logging"
+      : arg > 0 ? `GPS at ${Math.floor(1000 / arg)} Hz while logging: the module can't do 20 Hz` : `GPS rate ${arg}`;
     default: return `Logger event ${code}`;
   }
 }
 
-const num = (v, digits) => +v.toFixed(digits);
-const row = (t, key, values, digits) => JSON.stringify({ t: num(t, 3), [key]: values.map((v, k) => num(v, digits[k])) });
+/** A JSON number with at most `digits` decimals and no trailing zeros, as the app writes them. */
+export function jsonNumber(v, digits) {
+  if (!Number.isFinite(v)) return "null";
+  let s = v.toFixed(digits);
+  if (s.includes(".")) s = s.replace(/0+$/, "").replace(/\.$/, "");
+  return s === "-0" ? "0" : s;
+}
 
-/** A logger session as a drive log's text, as the iOS app imports it. `fileName` dates a session without a GPS time. */
-export function blrToLog(bytes, fileName = "") {
+/** JSON with its keys sorted, as the app's JSONSerialization(.sortedKeys) writes a header. */
+function sortedJson(v) {
+  if (Array.isArray(v)) return `[${v.map(sortedJson).join(",")}]`;
+  if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${sortedJson(v[k])}`).join(",")}}`;
+  return JSON.stringify(v);
+}
+
+const VIN = /^[A-Z0-9]{17}$/;
+const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+/** "LOG_00042_20261111-0805.BLR": the session's start, UTC, to the minute; null if not in the name. */
+export function startInName(name) {
+  const m = /(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(name);
+  return m ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])) : null;
+}
+
+/**
+ * A .BLR file (`bytes`, named `fileName`) as a drive log: { text, vin, session }. `vin` is the VIN
+ * the logger read, which isn't written in the log (logs get shared). Throws if it isn't a logger
+ * session at all.
+ */
+export function blrToLog(bytes, fileName = "session.BLR", { app = "Drive Replay (web)" } = {}) {
   const s = readBlr(bytes);
-  if (!s.header && !s.records.length) throw new Error(`${fileName || "This file"} isn't a BLE CAN Logger session: it has no session header and no records.`);
-  const t0 = s.records[0]?.tUs ?? 0n;
+  if (!s.header && !s.records.length) throw new Error(`${fileName} isn't a BLE CAN Logger session: it has no session header and no records.`);
+  const t0 = s.records.length ? s.records[0].tUs : 0n;
   const t = (r) => (r.tUs >= t0 ? Number(r.tUs - t0) / 1e6 : 0);
   let started = null;
   for (const r of s.records) {
-    if (r.type !== T.GNSS_PVT) continue;
+    if (r.type !== RECORD_TYPE.GNSS_PVT) continue;
     const p = navPvt(r.payload);
     if (p?.date) { started = new Date(p.date.getTime() - t(r) * 1000); break; }
   }
   started ??= startInName(fileName) ?? new Date();
+  let vin = s.header?.vin ?? null;
+  if (!vin) {
+    const ev = s.records.find((r) => r.type === RECORD_TYPE.EVENT && r.payload.length >= PAYLOAD.EVENT.size
+      && (r.payload[PAYLOAD.EVENT.code] | (r.payload[PAYLOAD.EVENT.code + 1] << 8)) === 5);
+    const text = ev ? String.fromCharCode(...ev.payload.subarray(PAYLOAD.EVENT.text).filter((b) => b !== 0)).trim().toUpperCase() : "";
+    vin = VIN.test(text) ? text : null;
+  }
 
-  const when = started.toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
   const source = { device: "ble-can-logger", file: fileName };
   if (s.header) {
     source.session = s.header.sessionId;
     const v = s.header.fwVersion;
     if (v) source.firmware = `${v >>> 24}.${(v >>> 16) & 0xff}.${(v >>> 8) & 0xff}`;
   }
-  const lines = [JSON.stringify({
-    accel: "car", app: "Boostbook web", car: {},
+  const when = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(started);
+  const lines = [sortedJson({
+    format: "boostbook-drive", version: 1, name: `Drive ${when} (logger)`, started: iso(started), app, simulated: false,
+    car: { name: "", model: "" }, mount: { preset: "upright" }, accel: "car",
     fields: {
-      acc: ["x", "y", "z"], baro: ["relalt", "kpa"],
       gps: ["lat", "lon", "alt", "hacc", "vacc", "speed", "sacc", "course", "cacc"],
-      motion: ["gx", "gy", "gz", "ax", "ay", "az", "rx", "ry", "rz"],
+      motion: ["gx", "gy", "gz", "ax", "ay", "az", "rx", "ry", "rz"], baro: ["relalt", "kpa"], acc: ["x", "y", "z"],
     },
-    format: "boostbook-drive", mount: { preset: "upright" }, name: `Drive ${when} (logger)`,
-    simulated: false, source, started: started.toISOString().replace(/\.\d{3}Z$/, "Z"), version: 1,
+    source,
   })];
+  const row = (time, key, values, digits) => `{"t":${jsonNumber(time, 3)},"${key}":[${values.map((v, i) => jsonNumber(v, digits[i])).join(",")}]}`;
+  const note = (text, time) => lines.push(`{"t":${jsonNumber(time, 3)},"note":${JSON.stringify(text)}}`);
 
   // The logger asks for one value at a time; gather a fifth of a second's into each reading.
-  const order = CHANNELS.map((c) => c.name), channels = [];
-  let values = {}, bucketStart = 0, lastT = 0;
-  const flush = () => {
-    const present = order.filter((n) => n in values);
-    if (!present.length) return;
-    const added = present.filter((n) => !channels.includes(n));
+  const channels = [];
+  let values = new Map(), bucketStart = 0, lastT = 0;
+  const carRow = (time) => {
+    const present = CHANNELS.filter((c) => values.has(c.name));
+    const added = present.filter((c) => !channels.includes(c));
     if (added.length) {
       channels.push(...added);
-      lines.push(JSON.stringify({ t: num(lastT, 3), channels: channels.map((n) => CHANNELS.find((c) => c.name === n)) }));
+      lines.push(sortedJson({ t: +jsonNumber(time, 3), channels: channels.map(({ name, unit, group, digits, min, max }) => ({ name, unit, group, digits, min, max })) }));
     }
-    const body = channels.map((n) => (n in values ? num(values[n], CHANNELS.find((c) => c.name === n).digits + 1) : null));
-    lines.push(JSON.stringify({ t: num(lastT, 3), car: body }));
-    values = {};
+    lines.push(`{"t":${jsonNumber(time, 3)},"car":[${channels.map((c) => (values.has(c.name) ? jsonNumber(values.get(c.name), c.digits + 1) : "null")).join(",")}]}`);
   };
+  const flush = () => { if (values.size) carRow(lastT); values = new Map(); };
   const add = (name, v, time) => {
-    if (name in values || time - bucketStart > 0.2) flush();
-    if (!Object.keys(values).length) bucketStart = time;
-    values[name] = v;
+    if (values.has(name) || time - bucketStart > 0.2) flush();
+    if (!values.size) bucketStart = time;
+    values.set(name, v);
     lastT = time;
   };
 
-  // The accelerometer's samples, each at its own time, in among the other lines.
+  // The accelerometer's samples, each at its own time: a record is stamped with its first sample
+  // and written 0.1 s later, so they go in among the other lines by time.
   const acc = [];
   for (const r of s.records) {
-    if (r.type !== T.IMU || r.payload.length < 8) continue;
-    const dv = new DataView(r.payload.buffer, r.payload.byteOffset, r.payload.byteLength);
-    const rate = dv.getUint16(0, true);
+    if (r.type !== RECORD_TYPE.IMU || r.payload.length < PAYLOAD.IMU.size + 6) continue;
+    const v = new DataView(r.payload.buffer, r.payload.byteOffset, r.payload.byteLength);
+    const rate = v.getUint16(PAYLOAD.IMU.rateHz, true);
     if (!rate) continue;
-    const n = Math.floor((r.payload.length - 2) / 6);
+    const n = Math.floor((r.payload.length - PAYLOAD.IMU.size) / 6);
     for (let k = 0; k < n; k++) {
-      const o = 2 + 6 * k;
-      acc.push([t(r) + k / rate, dv.getInt16(o, true) / 1000, dv.getInt16(o + 2, true) / 1000, dv.getInt16(o + 4, true) / 1000]);
+      const o = PAYLOAD.IMU.size + 6 * k, g = (i) => v.getInt16(o + i, true) / 1000;
+      acc.push([t(r) + k / rate, g(0), g(2), g(4)]);
     }
   }
   acc.sort((a, b) => a[0] - b[0]);
   let nextAcc = 0;
   const accUpTo = (time) => {
     for (; nextAcc < acc.length && acc[nextAcc][0] <= time; nextAcc++) {
-      const a = acc[nextAcc];
-      lines.push(row(a[0], "acc", a.slice(1), [3, 3, 3]));
+      const [at, x, y, z] = acc[nextAcc];
+      lines.push(row(at, "acc", [x, y, z], [3, 3, 3]));
     }
   };
 
   for (const r of s.records) {
-    const time = t(r);
+    const time = t(r), p = r.payload;
     accUpTo(time);
-    const p = r.payload;
-    if (r.type === T.GNSS_PVT) {
+    if (r.type === RECORD_TYPE.GNSS_PVT) {
       const f = navPvt(p);
       if (f?.usable) {
-        lines.push(row(time, "gps", [f.lat, f.lon, f.alt, f.hacc, f.vacc, f.speed, f.sacc, f.course, f.cacc], [7, 7, 2, 1, 1, 2, 2, 1, 1]));
-        lines.push(JSON.stringify({ t: num(time, 3), sv: f.satellites }));
+        const vacc = f.fixType === 2 ? -1 : f.verticalAccuracy;
+        lines.push(row(time, "gps", [f.lat, f.lon, f.altitude, f.horizontalAccuracy, vacc, f.speed, f.speedAccuracy, f.course, f.courseAccuracy], [7, 7, 2, 1, 1, 2, 2, 1, 1]));
+        lines.push(`{"t":${jsonNumber(time, 3)},"sv":${f.satellites}}`);
       }
-    } else if (r.type === T.OBD_PID) {
-      if (p.length >= 3 && (p[0] & 0x3f) === 0x01) {
-        const v = obdValue(p[1], p.subarray(3));
-        if (v) add(v[0], v[1], time);
-      }
-    } else if (r.type === T.VBAT) {
-      if (p.length >= 2) add("Battery", (p[0] | (p[1] << 8)) / 1000, time);
-    } else if (r.type === T.EVENT) {
-      if (p.length >= 6) {
-        const dv = new DataView(p.buffer, p.byteOffset, p.byteLength);
-        const text = eventNote(dv.getUint16(0, true), dv.getUint32(2, true));
-        if (text) lines.push(JSON.stringify({ t: num(time, 3), note: text }));
+    } else if (r.type === RECORD_TYPE.OBD_PID) {
+      const o = PAYLOAD.OBD_PID;
+      const value = p.length >= o.size && (p[o.service] & 0x3f) === 0x01 ? obdValue(p[o.pid], p.subarray(o.data)) : null;
+      if (value) add(value[0], value[1], time);
+    } else if (r.type === RECORD_TYPE.VBAT) {
+      if (p.length >= PAYLOAD.VBAT.size) add("Battery", (p[0] | (p[1] << 8)) / 1000, time);
+    } else if (r.type === RECORD_TYPE.EVENT) {
+      if (p.length >= PAYLOAD.EVENT.size) {
+        const v = new DataView(p.buffer, p.byteOffset, p.byteLength);
+        const text = eventNote(v.getUint16(PAYLOAD.EVENT.code, true), v.getUint32(PAYLOAD.EVENT.arg, true));
+        if (text !== null) note(text, time);
       }
     }
     // UDS values, raw CAN and the clock's PPS edges aren't in drive logs yet.
@@ -252,9 +280,9 @@ export function blrToLog(bytes, fileName = "") {
   }
   accUpTo(Infinity);
   flush();
-  const end = s.records.length ? t(s.records.at(-1)) : 0;
-  if (s.missing > 0) lines.push(JSON.stringify({ t: num(end, 3), note: `${s.missing} of the logger's records are missing` }));
-  if (s.skipped > 0) lines.push(JSON.stringify({ t: num(end, 3), note: `${s.skipped} damaged bytes in the logger's file were skipped` }));
-  lines.push(JSON.stringify({ t: num(end, 3), end: { forward: [0, 0, -1], learnt: false, up: [0, 1, 0] } }));
-  return lines.join("\n") + "\n";
+  const end = s.records.length ? t(s.records[s.records.length - 1]) : 0;
+  if (s.missingRecords > 0) note(`${s.missingRecords} of the logger's records are missing`, end);
+  if (s.skippedBytes > 0) note(`${s.skippedBytes} damaged bytes in the logger's file were skipped`, end);
+  lines.push(sortedJson({ t: +jsonNumber(end, 3), end: { forward: [0, 0, -1], up: [0, 1, 0], learnt: false } }));
+  return { text: lines.join("\n") + "\n", vin, session: s };
 }

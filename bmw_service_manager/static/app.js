@@ -353,6 +353,28 @@ function writeBody() {
   return { ...connection(), records, erase: $("#erase").checked, reset: $("#reset").checked };
 }
 
+/** "Version 1.5.0 is out": a line with a link to download it, while the check is on (remembered here). */
+function setUpUpdateCheck() {
+  const box = $("#check-updates");
+  try { box.checked = localStorage.getItem("checkUpdates") !== "off"; } catch { /* storage blocked */ }
+  const run = async () => {
+    $("#update").hidden = true;
+    if (!box.checked) return;
+    try {
+      const u = await api("/api/update");
+      if (u.state !== "newer") return;
+      $("#update").replaceChildren(`Boostbook for Desktop ${u.latest} is out (you have ${u.current}). `,
+        Object.assign(document.createElement("a"), { href: u.url, target: "_blank", rel: "noopener", textContent: "Download it" }));
+      $("#update").hidden = false;
+    } catch { /* offline: say nothing */ }
+  };
+  box.addEventListener("change", () => {
+    try { localStorage.setItem("checkUpdates", box.checked ? "on" : "off"); } catch { /* storage blocked */ }
+    run();
+  });
+  run();
+}
+
 async function init() {
   meta = await api("/api/meta");
   if (meta.default_host) {
@@ -362,6 +384,7 @@ async function init() {
   }
   render();
   $("#version").textContent = meta.version;
+  setUpUpdateCheck();
   checkStatus();
   setInterval(checkStatus, 4000);
   $("#host").addEventListener("change", checkStatus);

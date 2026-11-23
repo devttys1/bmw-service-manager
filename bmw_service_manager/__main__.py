@@ -72,7 +72,7 @@ def main() -> None:
         url = f"http://{args.bind}:{p}/"
         if not args.simulate and already_running(url):
             # Started twice (a second double-click): show the one that's running.
-            print(f"BMW Service Manager is already running at {url}")
+            print(f"Boostbook for Desktop is already running at {url}")
             if not args.no_browser:
                 webbrowser.open(url)
             return
@@ -85,7 +85,7 @@ def main() -> None:
 
     logging.getLogger("werkzeug").setLevel(logging.WARNING)  # no line per request
     url = f"http://{'127.0.0.1' if args.bind in ('0.0.0.0', '') else args.bind}:{web.server_port}/"
-    print(f"BMW Service Manager {__version__} is running.")
+    print(f"Boostbook for Desktop {__version__} is running.")
     print(f"Your web browser should open by itself. If it doesn't, open {url}")
     print("Leave this window open while you use it. Close it (or press Ctrl+C) to stop.")
     if not args.no_browser:

@@ -1,4 +1,4 @@
-# BMW Service Manager
+# Boostbook for Desktop
 
 Write a BMW's service history into its head unit, so every service shows up on the car's own
 **Service history** screen in iDrive. It also reads the **service due** (CBS) items the
@@ -16,11 +16,11 @@ It was developed on an F48 X1 with NBT Evo; other cars should work but haven't a
 
 | Your computer | Download |
 | --- | --- |
-| Mac (Apple silicon or Intel) | [BMW-Service-Manager-1.5.0-macOS.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-macOS.zip) |
-| Windows 10 or 11 (64-bit) | [BMW-Service-Manager-1.5.0-Windows.zip](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-Windows.zip) |
-| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [BMW-Service-Manager-1.5.0-Linux.tar.gz](https://github.com/devttys1/bmw-service-manager/releases/download/v1.5.0/BMW-Service-Manager-1.5.0-Linux.tar.gz) |
+| Mac (Apple silicon or Intel) | [Boostbook-for-Desktop-1.6.0-macOS.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-macOS.zip) |
+| Windows 10 or 11 (64-bit) | [Boostbook-for-Desktop-1.6.0-Windows.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-Windows.zip) |
+| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [Boostbook-for-Desktop-1.6.0-Linux.tar.gz](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-Linux.tar.gz) |
 
-This is version 1.5.0. All versions are on the [Releases](https://github.com/devttys1/bmw-service-manager/releases) page.
+This is version 1.6.0. All versions are on the [Releases](https://github.com/devttys1/boostbook-for-desktop/releases) page.
 
 ## Start it
 
@@ -36,49 +36,55 @@ no security warnings to get past.
 2. Copy this line, paste it into Terminal, and press Return:
 
    ```
-   curl -fsSL https://github.com/devttys1/bmw-service-manager/releases/latest/download/install-mac.sh | bash
+   curl -fsSL https://github.com/devttys1/boostbook-for-desktop/releases/latest/download/install-mac.sh | bash
    ```
 
-3. **BMW Service Manager** opens: a small window, and your web browser with the app in it.
+3. **Boostbook for Desktop** opens: a small window, and your web browser with the app in it.
    Turn on **Pretend car** in the window to look around without a car.
 
-Next time, open **BMW Service Manager** from Applications (or Launchpad). Running the same
+Next time, open **Boostbook for Desktop** from Applications (or Launchpad). Running the same
 line again updates it to the newest version.
 
-**Or download it.** Download the Mac zip above, open it, and drag **BMW Service Manager**
+**Had BMW Service Manager?** That's this app's old name (up to version 1.5). The Terminal line
+removes the old one from Applications for you. If you install from the zip instead, drag the
+old **BMW Service Manager** from Applications to the Bin. Nothing is lost: the app keeps
+nothing of yours inside it (the dealers you saved are kept by your web browser). This page
+moved with the name, from github.com/devttys1/bmw-service-manager: old links still lead here.
+
+**Or download it.** Download the Mac zip above, open it, and drag **Boostbook for Desktop**
 into Applications. The first time you open it, macOS says it can't check it for malicious
 software, because it isn't from the App Store. Click **Done**, then open **System Settings >
-Privacy & Security**, scroll down to the message about BMW Service Manager, click
+Privacy & Security**, scroll down to the message about Boostbook for Desktop, click
 **Open Anyway**, and enter your password if asked. You only do this once.
 
 Keep the app's window open while you use it; quit the app (⌘Q) to stop. If macOS asks
-whether BMW Service Manager may find devices on your local network, click **Allow**: that's
+whether Boostbook for Desktop may find devices on your local network, click **Allow**: that's
 how it finds the car. It needs macOS 13 (Ventura) or later.
 
 ### Windows
 
-1. Right-click the downloaded **BMW-Service-Manager-1.5.0-Windows.zip**, choose **Extract All...**,
-   then **Extract**. Use the extracted **BMW Service Manager** folder, not the zip.
+1. Right-click the downloaded **Boostbook-for-Desktop-1.6.0-Windows.zip**, choose **Extract All...**,
+   then **Extract**. Use the extracted **Boostbook for Desktop** folder, not the zip.
 2. Double-click **Try without a car**.
 3. The first time, Windows may say **Windows protected your PC**. Click **More info**, then
    **Run anyway**.
-4. A black window opens, and your web browser shows BMW Service Manager with a pretend car.
+4. A black window opens, and your web browser shows Boostbook for Desktop with a pretend car.
    Leave the black window open while you use it. Close it to stop.
 
-When you're at the car, double-click **Start BMW Service Manager** instead. If Windows
+When you're at the car, double-click **Start Boostbook for Desktop** instead. If Windows
 Firewall asks about python.exe, tick **Private networks** and click **Allow access**: that's
 how it finds the car.
 
 ### Linux
 
 1. Extract the download: right-click it and choose **Extract Here**, or in a terminal
-   `tar xzf BMW-Service-Manager-1.5.0-Linux.tar.gz`.
-2. Run **try-without-a-car.sh** in the **BMW Service Manager** folder (double-click it and
+   `tar xzf Boostbook-for-Desktop-1.6.0-Linux.tar.gz`.
+2. Run **try-without-a-car.sh** in the **Boostbook for Desktop** folder (double-click it and
    choose **Run in Terminal**, or run it from a terminal).
-3. Your web browser shows BMW Service Manager. If it doesn't open by itself, open the address
+3. Your web browser shows Boostbook for Desktop. If it doesn't open by itself, open the address
    the terminal shows. Press Ctrl+C in the terminal to stop.
 
-At the car, run **start-bmw-service-manager.sh** instead.
+At the car, run **start-boostbook.sh** instead.
 
 ## Connecting to the car
 
@@ -90,7 +96,7 @@ port, add a USB Ethernet adapter.
    charger for long sessions.)
 3. Leave the computer's Ethernet set to obtain an address automatically (DHCP), which is the
    usual setting. The car gives itself an address starting with 169.254.
-4. Start BMW Service Manager and click **Find vehicle**. The car's VIN appears, and the light at
+4. Start Boostbook for Desktop and click **Find vehicle**. The car's VIN appears, and the light at
    the top right turns green: **Connected**.
 
 The light checks every few seconds:
@@ -183,7 +189,7 @@ quit the app on a Mac, or close the black window or terminal.
 the cable and ignition, then click **Find vehicle** again.
 
 **Something else.** Open an issue on the
-[Issues](https://github.com/devttys1/bmw-service-manager/issues) page, with what you did and
+[Issues](https://github.com/devttys1/boostbook-for-desktop/issues) page, with what you did and
 what the log at the bottom of the page says.
 
 ## For developers

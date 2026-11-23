@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "../vendor/RoomEnvironment.js";
 import { buildCar } from "./car3d.js";
+import { AERIAL as ALLOWED, LITE } from "./site.js";
 
 const maplibregl = window.maplibregl;
 const TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
@@ -21,7 +22,7 @@ const ESRI_CREDIT = "Imagery © Esri, Maxar, Earthstar Geographics";
  * out, Esri's one picture looks better than states' edges). Victoria's Vicmap Basemaps is a paid
  * service, so isn't here. `tilemap`: the service says which tiles it has, as Esri's does.
  */
-const AERIAL = [
+const STATES = [
   { name: "NSW", bounds: [140.99, -37.51, 153.64, -28.15], from: 14, to: 21,
     tiles: "https://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Imagery/MapServer",
     credit: "Aerial imagery © State of New South Wales (Spatial Services, DCS), CC BY" },
@@ -32,6 +33,8 @@ const AERIAL = [
     tiles: "https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Orthophoto/MapServer",
     credit: "Aerial imagery © State of Tasmania, CC BY-NC-ND 3.0 AU" },
 ];
+// The hosted page may leave some out (site.js).
+const AERIAL = STATES.filter((a) => !ALLOWED || ALLOWED.includes(a.name));
 
 /** The credits for the imagery around a drive's [west, south, east, north]: the states it's in, and Esri. */
 export function imageryCredit(bounds) {
@@ -41,7 +44,8 @@ export function imageryCredit(bounds) {
 
 // On a Retina screen, MapLibre still picks imagery by CSS pixels: half the screen's detail.
 // Calling the tiles half as big makes it fetch the next level down, sharp to the pixel.
-const RETINA = (window.devicePixelRatio || 1) >= 1.5;
+// Not in lite detail (a phone or a tablet): four times the tiles is too much for its memory.
+const RETINA = (window.devicePixelRatio || 1) >= 1.5 && !LITE;
 
 export const BASEMAPS = {
   satellite: { label: "Satellite",
@@ -144,7 +148,7 @@ maplibregl.addProtocol("imagery", imageryTile);
  */
 function sharpenTerrain(map) {
   const terrain = map.terrain, painter = map.painter, rtt = painter?.renderToTexture;
-  if (!terrain || !rtt || rtt.sharpened) return;
+  if (!terrain || !rtt || rtt.sharpened || LITE) return;
   rtt.sharpened = true;
   const gl = painter.context.gl;
   const quality = (window.devicePixelRatio || 1) > 1.25 ? 4 : 2; // a power of two; 2 is MapLibre's

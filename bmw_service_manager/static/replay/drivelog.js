@@ -16,7 +16,7 @@
 //
 // Car axes follow ISO 8855: forward, left, up. Lateral g and yaw rate are positive to the left.
 
-import { isBlr, blrToLog } from "./blr.js";
+import { looksLikeBlr, blrToLog } from "./blr.js";
 
 export const RATE = 25;
 const G = 9.80665;
@@ -51,7 +51,7 @@ export async function readLog(source, name = source?.name ?? "") {
   if (source instanceof ArrayBuffer) bytes = new Uint8Array(source);
   else if (source instanceof Uint8Array) bytes = source;
   else bytes = new Uint8Array(await source.arrayBuffer());
-  if (isBlr(bytes, name)) return blrToLog(bytes, name);
+  if (looksLikeBlr(bytes, name)) return blrToLog(bytes, name || "session.BLR").text;
   if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
     return await new Response(stream).text();
@@ -514,7 +514,16 @@ export function processLog(raw) {
     );
     byName = Object.fromEntries([...channels, ...phone].map((c) => [c.name, c]));
   }
+  // Litres per 100 km: the engine's fuel rate over the car's speed, as the iOS Economy gauge
+  // (FuelEconomy.swift, #41); blank below 5 km/h, where it heads for infinity.
+  const fuel = economy(byName["Fuel rate"], byName["Speed"], n, RATE);
+  if (fuel) {
+    channels.push({ name: "Economy", unit: "l/100 km", group: byName["Fuel rate"].group, digits: 1, min: 0, max: 20,
+      values: fuel.values, derived: true });
+    byName = Object.fromEntries([...channels, ...phone].map((c) => [c.name, c]));
+  }
   return {
+    fuel: fuel ? { litres: fuel.litres, km: fuel.km } : null,
     figures,
     header, raw, duration, n, rate: RATE, origin, proj, mount, gpsLag, hasMotion, hasGps: fixes.length > 1,
     t: T, x: X, y: Y, lat: LAT, lon: LON, alt: A, speed: V, heading: H, pitch: P, roll: R,
@@ -523,6 +532,23 @@ export function processLog(raw) {
     marks: raw.marks, notes: raw.notes,
     started: header.started ? new Date(header.started) : null,
   };
+}
+
+/** Economy from the Fuel rate (l/h) and Speed (km/h) channels on the timeline: l/100 km at each
+ *  sample, and the litres and km over the stretches where both were read. Null without them. */
+export function economy(rate, speed, n, sampleRate) {
+  if (!rate || !speed) return null;
+  const values = new Float32Array(n).fill(NaN);
+  let litres = 0, km = 0;
+  const dt = 1 / sampleRate / 3600;
+  for (let i = 0; i < n; i++) {
+    const lph = rate.values[i], kmh = speed.values[i];
+    if (!Number.isFinite(lph) || !Number.isFinite(kmh)) continue;
+    litres += Math.max(lph, 0) * dt;
+    km += Math.max(kmh, 0) * dt;
+    if (kmh >= 5) values[i] = Math.min(Math.max(lph, 0) / kmh * 100, 99.9);
+  }
+  return km > 0 || litres > 0 ? { values, litres, km } : null;
 }
 
 /** The value of `arr` at time t, between samples. */

@@ -8,9 +8,14 @@ import { ReplayMap, BASEMAPS, driveBounds } from "./maplayer.js";
 import { CarView } from "./carview.js";
 import { SIZE, models, modelFor, chassisOf, loadModel, PAINTS } from "./car3d.js";
 import { Timeline, StripChart, drawGG, drawIncline, SERIES } from "./charts.js";
+import { HOSTED, EMBEDDED, asset } from "./site.js";
 
 const $ = (s) => document.querySelector(s);
-const state = { mode: "chase", drive: null, t: 0, playing: false, rate: 1, laps: [], line: null, ref: null, map: null, view: null, dirty: true };
+// What the viewer chose last time (the camera, the chart's values), kept in this browser only.
+const recall = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
+const remember = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage blocked */ } };
+const CAMERAS = ["chase", "top", "free", "fit"];
+const state = { mode: CAMERAS.includes(recall("replayCamera")) ? recall("replayCamera") : "chase", drive: null, t: 0, playing: false, rate: 1, laps: [], line: null, ref: null, map: null, view: null, dirty: true };
 // What the chart shows first: the driving values this drive has.
 const DEFAULT_CHART = ["GPS speed", "Speed", "RPM", "Pedal", "Rear axle", "Front axle", "xDrive (est.)", "Sideways g", "Pitch", "Roll", "Height"];
 const COLOUR_BY = ["GPS speed", "Height", "Sideways g", "Forward g", "Pedal", "Rear axle", "Front axle", "xDrive (est.)", "Boost", "RPM", "Pitch", "Roll"];
@@ -95,7 +100,7 @@ function show(drive, label) {
 
 // MARK: the car
 
-const thumb = (file) => `/static/cars/thumbs/${file ? file.replace(/\.glb$/, "") : "simple"}.webp`;
+const thumb = (file) => asset(`cars/thumbs/${file ? file.replace(/\.glb$/, "") : "simple"}.webp`);
 const shortName = (entry) => (entry ? `${entry.series} ${entry.chassis[0]}` : "Simple car");
 
 /** Draws the drive's car as `choice`: "auto" (the log's car, its nearest model, else the simple
@@ -106,6 +111,8 @@ async function chooseCar(choice) {
   const list = await models(), logs = await modelFor(car);
   const entry = choice === "auto" ? logs : list.find((m) => m.file === choice) || null;
   if (state.drive !== drive || state.carChoice !== choice) return;
+  // With no models in this copy (the hosted page and the app: their licences), only the simple car: nothing to pick.
+  $("#car-pick").hidden = !list.length;
   $("#car-pick-btn img").src = thumb(entry?.file);
   $("#car-pick-btn span").textContent = shortName(entry);
   fillCarList(list, logs);
@@ -199,6 +206,51 @@ function splitter(handle, name, rows, size) {
   handle.addEventListener("dblclick", () => { setLayout(name, null); end(); try { localStorage.setItem("replayLayout", JSON.stringify(layout)); } catch { /* storage blocked */ } });
 }
 
+// MARK: the touch layout
+
+// A phone either way up, an iPad upright or any small window: one screen of map, play and a panel
+// of tabs (replay.css body.compact). The chart moves into the panel's Chart tab; the close-up
+// shows on its Car tab. Only the chosen tab draws, which a phone's battery notices.
+const COMPACT = matchMedia("(max-width: 980px), (max-height: 560px)");
+const WIDE_TABS = ["values", "laps", "info"];
+
+function selectTab(name) {
+  for (const t of document.querySelectorAll(".tabs button")) {
+    t.setAttribute("aria-selected", t.dataset.tab === name);
+    const body = $(`#tab-${t.dataset.tab}`);
+    if (body) body.hidden = t.dataset.tab !== name;
+  }
+  $(".side").dataset.tab = name;
+  state.dirty = true;
+}
+
+function fitLayout() {
+  const compact = COMPACT.matches, was = document.body.classList.contains("compact");
+  document.body.classList.toggle("compact", compact);
+  document.body.classList.toggle("landscape", compact && innerWidth > innerHeight);
+  if (compact !== was) {
+    const windowLabel = $("#window").closest("label");
+    if (compact) {
+      $("#tab-chart .chart-head").append(windowLabel, $("#chips"));
+      $("#tab-chart").append($("#chart"));
+      const kept = recall("replayPanel");
+      selectTab(document.querySelector(`.tabs [data-tab="${kept}"]`) ? kept : "chart");
+    } else {
+      $(".controls").append(windowLabel);
+      $(".transport").append($("#chips"), $("#chart"));
+      if (!WIDE_TABS.includes($(".side").dataset.tab)) selectTab("values");
+    }
+  }
+  state.map?.map.resize();
+  state.dirty = true;
+}
+
+/** What's on screen to draw: everything, or in the touch layout only the chosen tab's. */
+function showing() {
+  const compact = document.body.classList.contains("compact"), tab = $(".side").dataset.tab;
+  return { car: !compact || tab === "car", chart: !compact || tab === "chart", values: !compact || tab === "values" };
+}
+
 function setLaps() {
   const d = state.drive;
   state.laps = lapsFor(d, state.line);
@@ -236,9 +288,18 @@ function seek(t) {
 }
 
 let last = performance.now();
+// Frames a second while playing (window.replay.fps), for comparing browsers and the Mac app's
+// web view; ?fps shows it in the page's title too.
+const meter = { frames: 0, since: performance.now(), show: new URLSearchParams(location.search).has("fps") };
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  if (state.playing) meter.frames++;
+  if (now - meter.since >= 1000) {
+    if (meter.frames) window.replay.fps = Math.round((meter.frames * 1000) / (now - meter.since));
+    if (meter.show && meter.frames) document.title = `${window.replay.fps} fps · Drive Replay`;
+    meter.frames = 0; meter.since = now;
+  }
   const d = state.drive;
   let simDt = 0;
   if (d && state.playing) {
@@ -289,15 +350,18 @@ function draw(dt) {
   const cs = carState(t, dt);
   state.map.show(pose, cs);
   const torque = cs.engine, second = cs.secondary;
-  state.view.render(pose, cs, {
-    engine: Number.isFinite(torque) ? `Engine ${Math.round(torque)} Nm` : "",
-    primary: Number.isFinite(cs.speed) ? `${Math.round(cs.speed)} km/h` : "",
-    secondary: Number.isFinite(second) ? `xDrive ${Math.round(second)} Nm` : "",
-  });
-  drawIncline($("#incline"), pose.pitch, pose.roll, state.view.shapes);
-  drawGG($("#gg"), d, t);
+  const on = showing();
+  if (on.car) {
+    state.view.render(pose, cs, {
+      engine: Number.isFinite(torque) ? `Engine ${Math.round(torque)} Nm` : "",
+      primary: Number.isFinite(cs.speed) ? `${Math.round(cs.speed)} km/h` : "",
+      secondary: Number.isFinite(second) ? `xDrive ${Math.round(second)} Nm` : "",
+    });
+    drawIncline($("#incline"), pose.pitch, pose.roll, state.view.shapes);
+    drawGG($("#gg"), d, t);
+  }
   timeline.draw(t);
-  chart.draw(t);
+  if (on.chart) chart.draw(t);
   $("#clock").textContent = formatTime(t, true);
   // The readout.
   $("#hud-speed").textContent = Math.round(cs.speed);
@@ -324,7 +388,7 @@ function draw(dt) {
     }
     for (const row of document.querySelectorAll("#laps tr[data-lap]")) row.classList.toggle("current", lap && +row.dataset.lap === lap.n);
   }
-  updateValues(t);
+  if (on.values) updateValues(t);
 }
 
 // MARK: side panels
@@ -374,6 +438,8 @@ function fillInfo() {
     ["Name", h.name], ["Started", d.started?.toLocaleString()], ["Time", formatTime(d.duration)],
     ["Distance", `${(d.dist[d.n - 1] / 1000).toFixed(2)} km`], ["Top speed", `${Math.round(maxSpeed * 3.6)} km/h`],
     ["Height", `${Math.round(Math.min(...d.alt))}–${Math.round(Math.max(...d.alt))} m`],
+    ...(d.fuel ? [["Fuel used", `${d.fuel.litres.toFixed(d.fuel.litres < 1 ? 2 : 1)} l, the engine's count`],
+      ["Economy", d.fuel.km >= 0.1 ? `${(d.fuel.litres / d.fuel.km * 100).toFixed(1)} l/100 km` : "—"]] : []),
     ...(d.hasMotion ? [["Most pitch", `${maxPitch.toFixed(1)}°`], ["Most roll", `${maxRoll.toFixed(1)}°`], ["Cornering", `${maxLat.toFixed(2)} g`]] : []),
     ["Car", [car.model, car.name].filter(Boolean).join(", ") || "—"],
     ["Paint", car.paint ? `${PAINTS[car.paint]?.[0] || "code"} (${car.paint})` : ""],
@@ -404,7 +470,7 @@ function colourTrack() {
   state.map.setTrack(d, c.values, lo, hi);
 }
 
-let chartNames = null;
+let chartNames = Array.isArray(recall("replayChart")) ? recall("replayChart") : null;
 function fillChips() {
   const d = state.drive;
   const all = [...d.phone, ...d.channels].map((c) => c.name);
@@ -430,6 +496,7 @@ function toggleChip(el) {
   const n = el.dataset.name;
   chartNames = chart.names.includes(n) ? chart.names.filter((x) => x !== n) : [...chart.names, n];
   chart.names = chartNames;
+  remember("replayChart", chartNames);
   el.classList.toggle("on"); el.setAttribute("aria-checked", el.classList.contains("on"));
   tintChips();
   state.dirty = true;
@@ -441,6 +508,7 @@ function markMode(mode) {
 
 function setMode(mode) {
   state.mode = mode;
+  remember("replayCamera", mode);
   if (!state.map) return;
   if (mode === "fit") { state.map.setMode("free"); state.map.fit(state.drive); markMode("fit"); return; }
   state.map.setMode(mode);
@@ -497,7 +565,7 @@ for (const input of ["#open", "#open2"]) {
   $(input).addEventListener("change", (e) => { const f = e.target.files[0]; if (f) open(f, f.name); e.target.value = ""; });
 }
 const sample = async () => {
-  const res = await fetch("/static/sample-drive.bblog.gz");
+  const res = await fetch(asset("sample-drive.bblog.gz"));
   if (!res.ok) { $("#load-error").textContent = "The sample drive is missing."; $("#load-error").hidden = false; return; }
   await open(await res.arrayBuffer(), "Sample drive");
   play();
@@ -517,6 +585,11 @@ $("#play").addEventListener("click", () => (state.playing ? pause() : play()));
 $("#back").addEventListener("click", () => seek(state.t - 5));
 $("#fwd").addEventListener("click", () => seek(state.t + 5));
 $("#rate").addEventListener("change", (e) => { state.rate = +e.target.value; });
+/** Keys 1-5: 1×, 2×, 4×, 8×, 16×. */
+function setRate(rate) {
+  $("#rate").value = String(rate);
+  state.rate = rate;
+}
 $("#window").addEventListener("change", (e) => { chart.window = +e.target.value; state.dirty = true; });
 $("#xray").addEventListener("change", (e) => { state.view?.setXray(e.target.checked); state.dirty = true; });
 for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", () => setMode(b.dataset.mode));
@@ -534,12 +607,14 @@ $("#chips").addEventListener("click", (e) => { if (e.target.dataset.name) toggle
 $("#chips").addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && e.target.dataset.name) { e.preventDefault(); toggleChip(e.target); } });
 for (const tab of document.querySelectorAll(".tabs button")) {
   tab.addEventListener("click", () => {
-    for (const t of document.querySelectorAll(".tabs button")) {
-      t.setAttribute("aria-selected", t === tab);
-      $(`#tab-${t.dataset.tab}`).hidden = t !== tab;
-    }
+    selectTab(tab.dataset.tab);
+    if (document.body.classList.contains("compact")) remember("replayPanel", tab.dataset.tab);
   });
 }
+$("#map-more").addEventListener("click", () => {
+  const open = $("#map-tools").classList.toggle("open");
+  $("#map-more").setAttribute("aria-expanded", open);
+});
 $("#laps").addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-lap]");
   const lap = row && state.laps.find((l) => l.n === +row.dataset.lap);
@@ -572,18 +647,36 @@ document.addEventListener("keydown", (e) => {
   else if (k === "t") setMode("top");
   else if (k === "f") setMode("free");
   else if (k === "w") setMode("fit");
+  else if (k >= "1" && k <= "5" && !e.metaKey && !e.ctrlKey && !e.altKey) setRate([1, 2, 4, 8, 16][k - 1]);
   else if (k === "[" || k === "]") {
     const sel = $("#rate"), i = sel.selectedIndex + (k === "]" ? 1 : -1);
     if (i >= 0 && i < sel.options.length) { sel.selectedIndex = i; state.rate = +sel.value; }
   }
 });
-window.addEventListener("resize", () => { state.dirty = true; });
+window.addEventListener("resize", () => { fitLayout(); state.dirty = true; });
+COMPACT.addEventListener("change", fitLayout);
+$(".side").dataset.tab = "values";
+document.body.classList.toggle("embedded", EMBEDDED);
+fitLayout();
 // The canvases' text is in the page's fonts: draw again once they're in.
 document.fonts?.ready.then(() => { timeline.cache = null; state.dirty = true; });
 
 requestAnimationFrame(frame);
-// /replay?sample opens the sample at once.
-if (new URLSearchParams(location.search).has("sample")) sample();
+// Links that stay: /replay/?demo=panorama (and the older ?sample) open the sample at once. The
+// hosted page opens with it playing; ?demo=none shows the page to drop a drive on instead.
+const DEMOS = { panorama: "sample-drive.bblog.gz" };
+const query = new URLSearchParams(location.search);
+// The app opens what it wants itself.
+if (query.has("sample") || DEMOS[query.get("demo")] || (HOSTED && !EMBEDDED && query.get("demo") !== "none")) sample();
+// The hosted page has only this page: no service history (it needs the car), no video overlay yet.
+if (HOSTED) document.querySelector(".pages")?.remove();
 
-// For the tests: the state, and the log functions.
-window.replay = { state, open, seek, play, pause };
+/** A drive's export as text, for an app to save and share (a web view doesn't download):
+ *  "kml" (Google Earth) or "csv". */
+function exportText(kind) {
+  if (!state.drive) return null;
+  return kind === "kml" ? toKml(state.drive, { laps: state.laps }) : kind === "csv" ? toCsv(state.drive) : null;
+}
+
+// For the tests and the apps (the Mac's and the iPhone's web views): the state, and the log functions.
+window.replay = { state, open, seek, play, pause, sample, exportText };

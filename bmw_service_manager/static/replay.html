@@ -23,6 +23,7 @@
     <symbol id="i-fwd" viewBox="0 0 24 24"><path d="m13 7 5 5-5 5M6 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h4l2 2h7A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0-4-4m4 4 4-4M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9M15 4.5v5M9 14.5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 20V4.5m0 0h10.5l-2 3.5 2 3.5H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </svg>
 
@@ -45,7 +46,7 @@
       <button id="export-kml" class="ghost" disabled title="A KML file for Google Earth: the path, and the car's track with its heading, pitch, roll and values to play back with Earth's time slider"><svg class="ico"><use href="#i-download"/></svg>Google Earth</button>
       <button id="export-csv" class="ghost" disabled title="Ten rows a second: time, position, attitude and every value"><svg class="ico"><use href="#i-download"/></svg>CSV</button>
       <button id="export-bblog" class="ghost" disabled title="The drive log itself (.bblog.gz): a logger's .BLR session turned into the log Boostbook's Logger tab and this page open"><svg class="ico"><use href="#i-download"/></svg>.bblog</button>
-      <label class="file-btn primary"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden></label>
+      <label class="file-btn primary"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open" type="file" accept=".bblog,.gz,.blr,.BLR,application/gzip" hidden></label>
     </div>
   </header>
 
@@ -54,9 +55,9 @@
       <img class="hero-icon" src="/static/boostbook-icon.svg" alt="" width="76" height="76">
       <p class="eyebrow">Drive replay</p>
       <h2>Watch a drive again</h2>
-      <p class="lead">Record a drive with Boostbook's <strong>Logger</strong> tab on the iPhone, share it to this computer, then drop the <code>.bblog.gz</code> file here. A Boostbook Logger's <code>.BLR</code> files open straight from its USB drive.</p>
+      <p class="lead">Record a drive with Boostbook on the iPhone and share it to this computer, or copy a session off the logger's USB drive. Then drop the <code>.bblog.gz</code> or <code>.BLR</code> file here.</p>
       <div class="row center">
-        <label class="file-btn primary large"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open2" type="file" accept=".bblog,.gz,.blr,application/gzip" hidden></label>
+        <label class="file-btn primary large"><svg class="ico"><use href="#i-open"/></svg>Open drive…<input id="open2" type="file" accept=".bblog,.gz,.blr,.BLR,application/gzip" hidden></label>
         <button id="sample2" class="ghost large"><svg class="ico"><use href="#i-play"/></svg>Try the sample drive</button>
       </div>
       <ul class="features">
@@ -65,7 +66,7 @@
         <li><strong>Laps and charts</strong><span>Lap times, every value, a g-g circle</span></li>
         <li><strong>Export</strong><span>Google Earth (.kml) or a spreadsheet (.csv)</span></li>
       </ul>
-      <p class="muted small">The sample is the app's simulator: an X1 xDrive18d around Mount Panorama, Bathurst, from a standing start. The file is read in this browser; nothing is uploaded. The map's imagery and terrain come from the NSW, Queensland and Tasmanian governments' aerial photos, Esri, OpenTopoMap, OpenStreetMap and AWS's open terrain tiles.</p>
+      <p class="muted small">The sample is the app's simulator: an X1 xDrive18d around Mount Panorama, Bathurst, from a standing start. <strong>Your file never leaves this browser:</strong> it's read here, and nothing is uploaded. The map's imagery and terrain come from the NSW, Queensland and Tasmanian governments' aerial photos, Esri, OpenTopoMap, OpenStreetMap and AWS's open terrain tiles. Boostbook isn't affiliated with or endorsed by BMW.</p>
       <p id="load-error" class="err" hidden></p>
     </div>
   </section>
@@ -87,13 +88,15 @@
           <span id="hud-delta" class="delta"></span>
         </div>
       </div>
-      <div class="map-tools glass">
+      <div class="map-tools glass" id="map-tools">
         <div class="seg" role="group" aria-label="Camera">
           <button data-mode="chase" class="on" title="Behind the car (C)">Chase</button>
           <button data-mode="top" title="Above the car, north up (T)">Above</button>
           <button data-mode="free" title="Leave the camera where you put it (F)">Free</button>
           <button data-mode="fit" title="The whole drive (W)">Whole drive</button>
         </div>
+        <!-- On a phone, the map's settings fold away behind this. -->
+        <button id="map-more" class="more" aria-expanded="false" aria-controls="map-tools" aria-label="Map settings" title="Map, colour and terrain"><svg class="ico"><use href="#i-sliders"/></svg></button>
         <label><span>Map</span> <select id="basemap"></select></label>
         <label><span>Colour</span> <select id="colour-by"></select></label>
         <label title="Exaggerate the terrain's height"><span>Terrain</span> <input id="exaggeration" type="range" min="1" max="3" step="0.25" value="1"><output id="exaggeration-value">1×</output></label>
@@ -119,11 +122,16 @@
         <canvas id="incline" aria-label="Pitch and roll"></canvas>
         <canvas id="gg" aria-label="g-g circle"></canvas>
       </div>
+      <!-- Chart and Car are tabs only in the touch layout (body.compact), where the chart moves
+           in here and the car's close-up shows when its tab is chosen. -->
       <div class="tabs" role="tablist">
+        <button role="tab" data-tab="chart" aria-selected="false" class="compact-only">Chart</button>
+        <button role="tab" data-tab="car" aria-selected="false" class="compact-only">Car</button>
         <button role="tab" data-tab="values" aria-selected="true">Values</button>
         <button role="tab" data-tab="laps" aria-selected="false">Laps</button>
         <button role="tab" data-tab="info" aria-selected="false">Drive</button>
       </div>
+      <div class="tab-body" id="tab-chart" hidden><div class="chart-head"></div></div>
       <div class="tab-body" id="tab-values"><table class="values" id="values"></table></div>
       <div class="tab-body" id="tab-laps" hidden>
         <div class="row">
@@ -146,7 +154,7 @@
           <button id="fwd" class="round" title="On 5 s (→)" aria-label="On 5 seconds"><svg class="ico"><use href="#i-fwd"/></svg></button>
         </div>
         <span class="clock"><strong id="clock">0:00.0</strong><span class="of">/ <span id="duration">0:00</span></span></span>
-        <label><span>Speed</span> <select id="rate">
+        <label title="Keys 1-5: 1×, 2×, 4×, 8×, 16×; [ and ] step"><span>Speed</span> <select id="rate">
           <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option>
           <option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
         </select></label>

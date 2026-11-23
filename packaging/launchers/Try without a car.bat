@@ -1,3 +1,3 @@
 @echo off
-rem Double-click to try BMW Service Manager with a pretend car (no cable needed).
-call "%~dp0Start BMW Service Manager.bat" --simulate %*
+rem Double-click to try Boostbook for Desktop with a pretend car (no cable needed).
+call "%~dp0Start Boostbook for Desktop.bat" --simulate %*

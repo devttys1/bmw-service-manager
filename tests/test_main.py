@@ -32,7 +32,7 @@ def test_taken_port_moves_to_the_next_and_a_second_start_finds_the_first():
     port = blocker.getsockname()[1]
     first = start("--port", str(port))
     try:
-        assert b"BMW Service History" in wait_for(f"http://127.0.0.1:{port + 1}/")
+        assert b"Service History" in wait_for(f"http://127.0.0.1:{port + 1}/")
         second = start("--port", str(port))
         out, _ = second.communicate(timeout=20)
         assert second.returncode == 0 and f"already running at http://127.0.0.1:{port + 1}/" in out

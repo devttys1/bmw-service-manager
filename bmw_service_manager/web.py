@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from . import __version__, hsfz, transfer
+from . import __version__, hsfz, transfer, updates
 from .cbs import BRAKE_FLUID, DME, OIL, owner, read_cbs, read_dme_status, read_item, reset_cbs
 from .headunit import SESSION_PATHS, HeadUnit, write_plan
 from .records import (
@@ -79,6 +79,12 @@ def create_app(default_host: str = "", default_port: int = hsfz.DIAG_PORT, simul
             default_host=default_host,
             default_port=default_port,
         )
+
+    @app.get("/api/update")
+    def update():
+        """Whether a newer version is out (asked of the releases page at most once a day). The page
+        calls this only while its "Check for updates" setting is on."""
+        return jsonify(updates.check(__version__))
 
     @app.get("/api/status")
     def status():

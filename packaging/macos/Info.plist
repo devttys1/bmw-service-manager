@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>BMW Service Manager</string>
+    <string>Boostbook for Desktop</string>
     <key>CFBundleDisplayName</key>
-    <string>BMW Service Manager</string>
+    <string>Boostbook for Desktop</string>
     <key>CFBundleIdentifier</key>
     <string>io.github.devttys1.bmw-service-manager</string>
     <key>CFBundleExecutable</key>
-    <string>BMW Service Manager</string>
+    <string>Boostbook for Desktop</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -25,6 +25,6 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>BMW Service Manager finds your car on the ENET cable and talks to it over the local network.</string>
+    <string>Boostbook for Desktop finds your car on the ENET cable and talks to it over the local network.</string>
 </dict>
 </plist>

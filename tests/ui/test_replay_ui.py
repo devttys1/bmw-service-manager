@@ -283,3 +283,86 @@ def test_xdrive_torque_is_worked_out(replay: Page):
     assert real["kept"] > 0.95 and real["over"] == 0, real
     # Set to 3,000 Nm, far more than the road could take: the axle's share of it is what passes.
     assert high["kept"] < 0.2 and high["over"] == 0, high
+
+
+def test_phone_layout(replay: Page):
+    """#39: on a phone either way up, one screen that doesn't scroll: the map, play and the
+    timeline, and a panel of tabs; the chart moves into its tab and back on a wide window."""
+    page = replay
+    page.set_viewport_size({"width": 390, "height": 760})
+    page.click("#sample2")
+    page.wait_for_function("window.replay?.state.drive", timeout=20000)
+    page.click("#play")  # pause
+    no_scroll = "document.scrollingElement.scrollHeight <= innerHeight + 1 && document.scrollingElement.scrollWidth <= innerWidth + 1"
+    assert page.evaluate("document.body.classList.contains('compact')")
+    assert page.evaluate(no_scroll), "nothing to scroll"
+    # The chart's tab first, with the chart and its values to pick in it.
+    expect(page.locator('.tabs button[data-tab="chart"]')).to_have_attribute("aria-selected", "true")
+    expect(page.locator("#tab-chart #chart")).to_be_visible()
+    expect(page.locator("#tab-chart #chips .chip.on").first).to_be_visible()
+    expect(page.locator(".car-panel")).to_be_hidden()
+    # The map's settings fold away.
+    expect(page.locator("#basemap")).to_be_hidden()
+    page.click("#map-more")
+    expect(page.locator("#basemap")).to_be_visible()
+    # The car's tab: the close-up and its dials, and the chart hidden.
+    page.click('.tabs button[data-tab="car"]')
+    expect(page.locator(".car-panel")).to_be_visible()
+    expect(page.locator("#incline")).to_be_visible()
+    expect(page.locator("#chart")).to_be_hidden()
+    assert page.locator(".car-view canvas").bounding_box()["height"] > 100
+    # Laps play from their row, as on a computer.
+    page.click('.tabs button[data-tab="laps"]')
+    page.locator("#laps tr[data-lap]").nth(1).click()
+    page.wait_for_timeout(300)
+    expect(page.locator("#hud-lap-n")).to_contain_text("Lap 2/2")
+    page.click("#play")
+    # On its side: the panel beside the map, still one screen; the tab kept.
+    page.set_viewport_size({"width": 844, "height": 390})
+    page.wait_for_timeout(200)
+    assert page.evaluate("document.body.classList.contains('landscape')")
+    assert page.evaluate(no_scroll)
+    side, stage = page.locator(".side").bounding_box(), page.locator(".stage").bounding_box()
+    assert side["x"] >= stage["x"] + stage["width"] - 1, "the panel is to the right of the map"
+    expect(page.locator('.tabs button[data-tab="laps"]')).to_have_attribute("aria-selected", "true")
+    # A wide window again: the desktop's layout, the chart back under the timeline.
+    page.set_viewport_size({"width": 1400, "height": 900})
+    page.wait_for_timeout(200)
+    assert not page.evaluate("document.body.classList.contains('compact')")
+    expect(page.locator(".transport #chart")).to_be_visible()
+    expect(page.locator(".car-panel")).to_be_visible()
+    expect(page.locator('.tabs button[data-tab="chart"]')).to_be_hidden()
+    expect(page.locator('.tabs button[data-tab="laps"]')).to_have_attribute("aria-selected", "true")
+
+
+def test_app_copy_shows_only_the_player(page: Page, tmp_path):
+    """#39: the iOS app's copy (build_replay_site.py --app): no header or drop page, no car models
+    to pick, no sample until the app asks; the app reads exports as text."""
+    import functools
+    import http.server
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tools"))
+    import build_replay_site
+
+    build_replay_site.build(tmp_path / "app", car_models="none", aerial=["NSW", "Queensland"], layout="folder",
+                            hosted=True, embedded=True)
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "app"))
+    handler.func.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.set_viewport_size({"width": 402, "height": 760})
+    page.goto(f"http://127.0.0.1:{server.server_port}/index.html?demo=none")
+    page.wait_for_function("window.replay")
+    expect(page.locator(".replay-bar")).to_be_hidden()
+    expect(page.locator("#sample2")).to_be_hidden()
+    assert not page.evaluate("window.replay.state.drive"), "nothing opened by itself"
+    page.evaluate("window.replay.sample()")
+    page.wait_for_function("window.replay.state.drive && window.replay.state.playing", timeout=20000)
+    expect(page.locator("#car-pick")).to_be_hidden()
+    assert page.evaluate("window.replay.exportText('csv')").startswith("time_s,lat,lon")
+    assert "<gx:Track>" in page.evaluate("window.replay.exportText('kml')")
+    server.shutdown()
+    assert not errors, f"JavaScript errors: {errors}"

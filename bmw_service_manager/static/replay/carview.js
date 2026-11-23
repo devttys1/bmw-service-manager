@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { OrbitControls } from "../vendor/OrbitControls.js";
 import { RoomEnvironment } from "../vendor/RoomEnvironment.js";
 import { buildCar, silhouettes } from "./car3d.js";
+import { PIXEL_RATIO } from "./site.js";
 
 export class CarView {
   constructor(container, { driven = "front", xdrive = "rear" } = {}) {
@@ -12,7 +13,7 @@ export class CarView {
     this.options = { driven, xdrive };
     this.xray = true;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+    this.renderer.setPixelRatio(PIXEL_RATIO);
     container.appendChild(this.renderer.domElement);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
