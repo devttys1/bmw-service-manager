@@ -30,7 +30,7 @@ async function open(source, label) {
     drive.text = text;
     if (!drive.hasGps) {
       throw new Error(drive.header.source?.device === "ble-can-logger"
-        ? "This logger session has no GPS fixes to draw: the logger had no fix while it recorded."
+        ? "This logger session has no GPS fixes to draw: the logger had no fix while it recorded. Imported in the Boostbook app with Record this iPhone's GPS too on, a drive has the iPhone's track instead."
         : "This drive has no GPS fixes to draw. Was Location allowed for Boostbook?");
     }
     show(drive, label);
@@ -445,7 +445,7 @@ function fillInfo() {
     ["Paint", car.paint ? `${PAINTS[car.paint]?.[0] || "code"} (${car.paint})` : ""],
     ["xDrive", { rear: "to the rear axle (a clutch)", front: "to the front axle (a transfer case)", none: "none" }[state.xdrive] || "—"],
     ["Car values", d.channels.length ? `${d.channels.length}, ${d.raw.car.length.toLocaleString()} readings` : "none"],
-    ["GPS fixes", `${d.raw.gps.length.toLocaleString()}${d.gpsLag ? `, ${d.gpsLag.toFixed(1)} s late (taken off)` : ""}`], ["Motion", d.hasMotion ? `${d.raw.motion.length.toLocaleString()} readings` : "none"],
+    ["GPS fixes", `${d.raw.gps.length.toLocaleString()}${d.gpsLag ? `, ${d.gpsLag.toFixed(1)} s late (taken off)` : ""}${d.header.gps?.note ? `. ${d.header.gps.note}` : ""}`], ["Motion", d.hasMotion ? `${d.raw.motion.length.toLocaleString()} readings` : "none"],
     ["Up", upFrom], ["Forward", fwdFrom],
     ...(d.byName["xDrive (est.)"] ? [["xDrive (est.)", `from ${d.figures.chassis ? `the ${d.figures.chassis}'s` : "typical"} figures: ${d.figures.mass.toLocaleString()} kg, ${Math.round(d.figures.front * 100)}% on the front axle, ${Math.round(d.figures.radius * 1000)} mm wheels`]] : []),
     ["Recorded by", `Boostbook ${h.app || ""}${h.simulated ? " (simulator)" : ""}`],

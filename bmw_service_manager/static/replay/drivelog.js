@@ -83,7 +83,8 @@ export function parseLog(text) {
     const t = row.t;
     if (typeof t !== "number") continue;
     if (row.m) { const m = row.m; raw.motion.push([t, m[0], m[1], m[2], flip * m[3], flip * m[4], flip * m[5], m[6], m[7], m[8]]); }
-    else if (row.gps) raw.gps.push([t, ...row.gps]);
+    // A logger session imported with the iPhone's track (#60) marks each fix "logger" or "phone": kept at [10].
+    else if (row.gps) raw.gps.push(row.src ? [t, ...row.gps, row.src] : [t, ...row.gps]);
     else if (row.baro) raw.baro.push([t, ...row.baro]);
     else if (row.car) {
       const values = {};
@@ -227,6 +228,8 @@ export function findGpsLag(raw, fixes, up) {
     const pairs = [];
     for (let k = 1; k < fixes.length; k++) {
       const a = fixes[k - 1], b = fixes[k], dt = b[0] - a[0];
+      // The lag is the iPhone's: the logger's fixes (#60) don't count.
+      if (a[10] === "logger" || b[10] === "logger") continue;
       if (dt >= 0.3 && dt <= 1.5 && ok(a, b)) pairs.push([a[0], b[0], gps(a, b)]);
     }
     if (pairs.length < 30) continue;
@@ -327,7 +330,8 @@ export function processLog(raw) {
     .sort((a, b) => a[0] - b[0]);
   // Each fix at when the car was there, so the map keeps time with the gyro and the car's values.
   const gpsLag = findGpsLag(raw, fixes, solveMount(raw, fixes).up);
-  if (gpsLag) fixes = fixes.map((f) => [f[0] - gpsLag, ...f.slice(1)]);
+  // Only the iPhone's: a logger session's own fixes keep their times (#60).
+  if (gpsLag) fixes = fixes.map((f) => (f[10] === "logger" ? f : [f[0] - gpsLag, ...f.slice(1)])).sort((a, b) => a[0] - b[0]);
   const lastT = Math.max(
     raw.motion.at(-1)?.[0] ?? 0, raw.gps.at(-1)?.[0] ?? 0, raw.car.at(-1)?.[0] ?? 0, raw.end?.t ?? 0);
   const n = Math.max(2, Math.floor(lastT * RATE) + 1);

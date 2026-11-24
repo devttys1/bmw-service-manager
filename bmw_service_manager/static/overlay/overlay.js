@@ -5,7 +5,7 @@ import { readLog, parseLog, processLog, formatTime } from "../replay/drivelog.js
 import { readMp4 } from "./mp4.js";
 import { readTelemetry } from "./gpmf.js";
 import { autoSync } from "./sync.js";
-import { WIDGETS, defaultLayout, prepare, drawOverlay, available } from "./render.js";
+import { WIDGETS, NEEDLE_STYLES, defaultLayout, prepare, drawOverlay, available, needleChoices, needleValue } from "./render.js";
 import { canExport, decoderConfig, exportVideo, frameRate, outputSize } from "./export.js";
 
 const $ = (s) => document.querySelector(s);
@@ -37,6 +37,8 @@ function loadLayout(aspect) {
       if (saved.scale) fresh.scale = saved.scale;
       if (saved.units) fresh.units = saved.units;
       if (Array.isArray(saved.values)) fresh.values = saved.values;
+      if (NEEDLE_STYLES[saved.needleStyle]) fresh.needleStyle = saved.needleStyle;
+      if (typeof saved.needleValue === "string") fresh.needleValue = saved.needleValue;
     }
   } catch { /* none kept */ }
   return fresh;
@@ -433,6 +435,7 @@ function buildGaugeControls() {
   list.innerHTML = "";
   for (const [id, w] of Object.entries(WIDGETS)) {
     const ok = available(id, state.drive);
+    if (w.needle && !list.querySelector(".group")) list.append(Object.assign(document.createElement("li"), { className: "group eyebrow", textContent: "Needle gauges" }));
     const li = document.createElement("li");
     const label = document.createElement("label");
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: ok && state.layout.widgets[id].on, disabled: !ok });
@@ -445,6 +448,14 @@ function buildGaugeControls() {
   }
   $("#scale").value = state.layout.scale;
   $("#units").value = state.layout.units;
+  // Needle gauges: one style for them all, and the value the value needle shows.
+  const style = $("#needle-style");
+  style.replaceChildren(...Object.entries(NEEDLE_STYLES).map(([id, name]) => new Option(name, id)));
+  style.value = state.layout.needleStyle;
+  const pick = $("#needle-value"), choices = needleChoices(state.drive);
+  pick.replaceChildren(...choices.map((n) => new Option(n, n)));
+  pick.value = needleValue(state.layout, state.drive) || "";
+  pick.disabled = !choices.length;
   // Values: any of the drive's channels, four at most.
   const chips = $("#value-chips");
   chips.innerHTML = "";
@@ -468,6 +479,13 @@ function buildGaugeControls() {
 
 $("#scale").addEventListener("input", (e) => { state.layout.scale = +e.target.value; saveLayout(); draw(); });
 $("#units").addEventListener("change", (e) => { state.layout.units = e.target.value; saveLayout(); draw(); });
+$("#needle-style").addEventListener("change", (e) => { state.layout.needleStyle = e.target.value; saveLayout(); draw(); });
+$("#needle-value").addEventListener("change", (e) => {
+  state.layout.needleValue = e.target.value;
+  state.layout.widgets.needle.on = true;
+  $('[data-widget="needle"]').checked = true;
+  saveLayout(); draw();
+});
 $("#reset-layout").addEventListener("click", () => {
   try { localStorage.removeItem(layoutKey(state.aspect)); } catch { /* none */ }
   state.layout = defaultLayout(state.aspect);

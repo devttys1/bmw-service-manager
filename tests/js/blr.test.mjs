@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { blrToLog, readBlr, crc16, navPvt, obdValue, eventNote, jsonNumber, looksLikeBlr, startInName } from "../../bmw_service_manager/static/replay/blr.js";
+import { blrToLog, readBlr, crc16, navPvt, obdValue, eventNote, jsonNumber, looksLikeBlr, startInName, assistBursts } from "../../bmw_service_manager/static/replay/blr.js";
 import { readLog, parseLog, processLog } from "../../bmw_service_manager/static/replay/drivelog.js";
 
 const root = (p) => fileURLToPath(new URL(`../../${p}`, import.meta.url));
@@ -105,9 +105,46 @@ test("UBX-NAV-PVT, OBD formulas, events, numbers", () => {
   assert.equal(eventNote(16, 100), "GPS at 10 Hz while logging: the module can't do 20 Hz");
   assert.equal(eventNote(14, (3 << 20) | (40 << 8) | 1), "GPS assistance from the phone: 40 frames taken, 3 refused");
   assert.equal(eventNote(5, 0), null);
+  assert.equal(eventNote(4, 6), "Logger session ended: stopped from the app");   // #51
+  assert.equal(eventNote(4, 1), "Logger session ended");
   assert.equal(eventNote(99, 0), "Logger event 99");
   assert.equal(jsonNumber(-0.0001, 3), "0");
   assert.equal(jsonNumber(149.5501300, 7), "149.55013");
   assert.equal(startInName(NAME).toISOString(), "2026-11-11T08:05:00.000Z");
   assert.equal(startInName("LOG_00042_NOTIME.BLR"), null);
+});
+
+const notesOf = (text) => text.trim().split("\n").map((l) => JSON.parse(l)).filter((r) => r.note !== undefined);
+
+test("GPS assistance: one note a burst, at its start, with its final count (#48)", () => {
+  const w = writer();
+  const assist = (t, acked, refused = 0) => w.record(5, t, [...w.le(14, 2), ...w.le(0x0b | (acked << 8) | (refused << 20), 4)]);
+  w.record(5, 0, [...w.le(1, 2), ...w.le(1, 4)]); // BOOT
+  [4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 36].forEach((n, k) => { // the 24 Nov drive's: 12 events in 0.8 s
+    assist(62.683 + k * 0.07, n);
+    w.record(2, 62.7 + k * 0.07, [0x01, 0x0c, 0, 0x0d, 0x70]);
+  });
+  assist(70, 40); // 6 s later: its own note
+  assist(300, 43, 2); // the phone's next assistance
+  assist(301, 45, 2);
+  const bytes = Uint8Array.from(w.bytes);
+  const s = readBlr(bytes);
+  const bursts = assistBursts(s.records, (r) => Number(r.tUs - s.records[0].tUs) / 1e6);
+  assert.equal(bursts.first.size, 3);
+  assert.equal(bursts.merged.size, 12);
+  const notes = notesOf(blrToLog(bytes, "LOG_00001_20261123-2322.BLR").text).filter((n) => n.note.startsWith("GPS assistance"));
+  assert.deepEqual(notes, [
+    { t: 62.683, note: "GPS assistance from the phone: 36 frames taken" },
+    { t: 70, note: "GPS assistance from the phone: 40 frames taken" },
+    { t: 300, note: "GPS assistance from the phone: 45 frames taken, 2 refused" },
+  ]);
+});
+
+test("a real session (ble-can-logger's fixture, STM32 0.1.27): the M10's fixes at 20 Hz, one assistance note", () => {
+  // The iOS app's import of the same file (BlrTests.swift, blrGnssTests): 67 fixes, the same notes.
+  const real = new Uint8Array(readFileSync(root("ios-app/tools/tests/fixtures/session-f48-drive.BLR")));
+  const rows = blrToLog(real, "LOG_00006_20261122-0505.BLR").text.trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(rows.filter((r) => r.gps).length, 67);
+  const gps = rows.filter((r) => r.note?.startsWith("GPS")).map((r) => r.note);
+  assert.deepEqual(gps, ["GPS assistance from the phone: 31 frames taken", "GPS fix", "GPS first fix after 78.2 s"]);
 });

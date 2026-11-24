@@ -25,6 +25,9 @@ export const RECORD_TYPE = {
   VBAT: 8,  // battery voltage
   GNSS_SAT: 9,  // the receiver's satellites in view while logging, at most every 10 s: signal quality after a drive (C/N0, elevation, used)
   GNSS_RF: 10,  // the receiver's RF front end while logging, polled every 10 s: gain (AGC), noise and the CW jamming indicator
+  LIVE_LIST: 11,  // STM32 0.1.44 (bmw-service-manager #54): one piece of the phone's live polling list exactly as LIVE_POLL carried it (docs/ble-protocol.md section 13), when a list starts or is replaced and again at a session's open while one runs; never on Data. LIVE_VALUES items are numbered by their place in it, from 0
+  LIVE_VALUES: 12,  // STM32 0.1.44 (#54): a batch of the live list's values. On Data (LIVE_START mask bit 12): the newest answer of each item since the last batch, every batch_ms while anything is new, an empty one every 500 ms. In the BLR (while a session is open): every answer of the items flagged log, except those a drive item's OBD_PID already holds
+  LIVE_STATS: 13,  // STM32 0.1.44 (#54): how the live list's items run. On Data (LIVE_START mask bit 13) once a second; in the BLR at the list's end or the session's close (as many records as the items need)
 };
 export const PAYLOAD = {
   GNSS_PVT: { ubx: 0, size: 92 },
@@ -37,10 +40,13 @@ export const PAYLOAD = {
   VBAT: { mv: 0, size: 2 },
   GNSS_SAT: { sats: 0, ubx: 1, size: 1 },
   GNSS_RF: { blocks: 0, ubx: 1, size: 1 },
+  LIVE_LIST: { format: 0, list: 1, piece: 2, body: 3, size: 3 },
+  LIVE_VALUES: { list: 0, seq: 1, skipped: 3, n: 4, entries: 5, size: 5 },
+  LIVE_STATS: { list: 0, uptimeS: 1, busPct: 3, ownPct: 4, reqS: 5, ansS: 6, first: 7, n: 8, items: 9, size: 9 },
 };
 
 /** Enumerated fields: value -> name. */
 export const ENUM = {
   UDS_DID_TRANSPORT: { 0: "HSFZ", 1: "DCAN" },
-  EVENT_CODE: { 1: "BOOT", 2: "ENGINE_START", 3: "ENGINE_STOP", 4: "SESSION_END", 5: "VIN", 6: "ENET_LINK", 7: "DCAN_ONLY", 8: "TUNNEL_OPEN", 9: "TUNNEL_CLOSE", 10: "LOW_BATTERY", 11: "GNSS_FIX", 12: "ERROR", 13: "NAND_GAP", 14: "GNSS_ASSIST", 15: "GNSS_TTFF", 16: "GNSS_RATE", 17: "TUNNEL_FRAME", 18: "GNSS_SPAN", 19: "SCAN", 20: "DDID_DEFINE", 21: "VIN_BLANK", 22: "OBD_INFO", 23: "OBD_29BIT", 24: "TUNNEL_GUARD", 25: "TUNNEL_NO_ANSWER" },
+  EVENT_CODE: { 1: "BOOT", 2: "ENGINE_START", 3: "ENGINE_STOP", 4: "SESSION_END", 5: "VIN", 6: "ENET_LINK", 7: "DCAN_ONLY", 8: "TUNNEL_OPEN", 9: "TUNNEL_CLOSE", 10: "LOW_BATTERY", 11: "GNSS_FIX", 12: "ERROR", 13: "NAND_GAP", 14: "GNSS_ASSIST", 15: "GNSS_TTFF", 16: "GNSS_RATE", 17: "TUNNEL_FRAME", 18: "GNSS_SPAN", 19: "SCAN", 20: "DDID_DEFINE", 21: "VIN_BLANK", 22: "OBD_INFO", 23: "OBD_29BIT", 24: "TUNNEL_GUARD", 25: "TUNNEL_NO_ANSWER", 26: "LIVE", 27: "MARK" },
 };

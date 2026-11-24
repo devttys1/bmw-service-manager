@@ -186,6 +186,80 @@ def test_gauges_draw_and_move(overlay: Page, tmp_path):
     assert "map" in overlay.evaluate("window.overlay.state.boxes")
 
 
+def test_needle_gauges_draw_in_every_style(overlay: Page):
+    """#62: the speedometer, rev counter, boost and value needles, in each style, at 1080p and 4K.
+    Each style draws something of its own, and the needle moves with the value."""
+    result = overlay.evaluate("""async () => {
+      const { readLog, parseLog, processLog } = await import('/static/replay/drivelog.js');
+      const R = await import('/static/overlay/render.js');
+      const drive = processLog(parseLog(await readLog(await fetch('/static/sample-drive.bblog.gz'))));
+      const prep = R.prepare(drive);
+      const ids = ['speedo', 'tacho', 'boostNeedle', 'needle'];
+      const out = {};
+      for (const H of [1080, 2160]) {
+        const W = Math.round(H * 16 / 9);
+        for (const style of Object.keys(R.NEEDLE_STYLES)) {
+          const layout = R.defaultLayout(W / H);
+          for (const id of Object.keys(layout.widgets)) layout.widgets[id].on = ids.includes(id);
+          layout.needleStyle = style;
+          const grab = (t) => {
+            const c = new OffscreenCanvas(W, H), g = c.getContext('2d');
+            const boxes = R.drawOverlay(g, W, H, t, { drive, prep, layout });
+            const [x, y, w, h] = boxes.speedo;
+            return { boxes, pixels: Array.from(g.getImageData(x, y, w, h).data) };
+          };
+          const a = grab(40), b = grab(5);
+          const opaque = a.pixels.filter((v, i) => i % 4 === 3 && v > 0).length;
+          let diff = 0;
+          for (let i = 0; i < a.pixels.length; i++) diff += Math.abs(a.pixels[i] - b.pixels[i]);
+          out[`${style}@${H}`] = { boxes: Object.keys(a.boxes), w: a.boxes.speedo[2], opaque: opaque / (a.pixels.length / 4), diff,
+                                   sum: a.pixels.reduce((s, v) => s + v, 0) };
+        }
+      }
+      return { out, value: R.needleValue({ needleValue: null }, drive), choices: R.needleChoices(drive), engine: prep.engine };
+    }""")
+    out = result["out"]
+    assert set(k.split("@")[0] for k in out) == {"classic", "sport", "minimal", "digital", "vintage"}
+    for key, r in out.items():
+        assert sorted(r["boxes"]) == sorted(["speedo", "tacho", "boostNeedle", "needle"]), key
+        assert r["opaque"] > 0.7, f"{key}: the dial is drawn"
+        assert r["diff"] > 0, f"{key}: the needle moves"
+    assert out["classic@2160"]["w"] == pytest.approx(2 * out["classic@1080"]["w"], abs=1), "the same at 4K, twice the pixels"
+    assert len({r["sum"] for k, r in out.items() if k.endswith("@1080")}) == 5, "each style looks different"
+    assert result["value"] == "Oil temp" and "Coolant" in result["choices"]
+    assert result["engine"] == {"fuel": "diesel", "redline": 5000, "said": False}, "the sample X1 xDrive18d is a diesel"
+
+
+@needs_ffmpeg
+def test_needle_settings(overlay: Page, tmp_path):
+    """The needle gauges are off at first; turned on, they draw in the style picked, kept with the layout."""
+    open_both(overlay, make_video(tmp_path / "clip.mp4"))
+    overlay.evaluate("window.overlay.seek(2)")
+    boxes = overlay.evaluate("window.overlay.state.boxes")
+    assert not {"speedo", "tacho", "boostNeedle", "needle"} & set(boxes), "off until asked for"
+    assert "dial" in boxes, "the gauges as they were"
+    expect(overlay.locator("#widgets .group")).to_have_text("Needle gauges")
+    overlay.check('[data-widget="speedo"]')
+    overlay.check('[data-widget="tacho"]')
+    assert {"speedo", "tacho"} <= set(overlay.evaluate("window.overlay.state.boxes"))
+    assert overlay.locator("#needle-style option").count() == 5
+    expect(overlay.locator("#needle-style")).to_have_value("minimal")
+    overlay.select_option("#needle-style", "sport")
+    overlay.select_option("#needle-value", "Coolant")
+    layout = overlay.evaluate("window.overlay.state.layout")
+    assert layout["needleStyle"] == "sport" and layout["needleValue"] == "Coolant" and layout["widgets"]["needle"]["on"]
+    assert "needle" in overlay.evaluate("window.overlay.state.boxes")
+    saved = json.loads(overlay.evaluate("localStorage.getItem('boostbook.overlay.layout')"))
+    assert saved["needleStyle"] == "sport" and saved["widgets"]["speedo"]["on"]
+    overlay.reload()
+    open_both(overlay, make_video(tmp_path / "clip.mp4"))
+    expect(overlay.locator("#needle-style")).to_have_value("sport")
+    expect(overlay.locator("#needle-value")).to_have_value("Coolant")
+    overlay.click("#reset-layout")
+    expect(overlay.locator("#needle-style")).to_have_value("minimal")
+    assert not {"speedo", "tacho", "needle"} & set(overlay.evaluate("window.overlay.state.boxes"))
+
+
 @needs_ffmpeg
 def test_exports_an_mp4_with_the_gauges_and_sound(overlay: Page, tmp_path):
     video = make_video(tmp_path / "clip.mp4")

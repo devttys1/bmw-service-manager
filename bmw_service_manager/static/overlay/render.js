@@ -6,6 +6,7 @@
 // corner as a fraction of the frame's width and height.
 
 import { at, value, findStartLine, lapsFor, delta, formatTime } from "../replay/drivelog.js";
+import { NEEDLE_STYLES, drawNeedleGauge, engineOf, niceScale, rpmScale, speedScale } from "./needles.js";
 
 export const FONT = { figures: '"Archivo", system-ui, sans-serif', label: '"IBM Plex Mono", ui-monospace, monospace', ui: '"Inter", system-ui, sans-serif' };
 const C = {
@@ -23,7 +24,26 @@ export const WIDGETS = {
   lap: { label: "Lap timer", w: 38, h: 13 },
   values: { label: "Values", w: 24, h: 0 },
   attitude: { label: "Pitch and roll", w: 26, h: 13 },
+  // Needle gauges (#62), in the style the settings pick (layout.needleStyle).
+  speedo: { label: "Speedometer", w: 26, h: 26, needle: true },
+  tacho: { label: "Rev counter", w: 26, h: 26, needs: "RPM", needle: true },
+  boostNeedle: { label: "Boost needle", w: 18, h: 18, needs: "Boost", needle: true },
+  needle: { label: "Value needle", w: 18, h: 18, needle: true },
 };
+
+export { NEEDLE_STYLES };
+
+/** The values a value needle can show: the drive's channels with numbers (not states). */
+export function needleChoices(drive) {
+  return drive ? [...drive.channels, ...drive.phone].filter((c) => !c.states).map((c) => c.name) : [];
+}
+
+/** The value needle's channel: the one picked, if the drive has it, else a likely one. */
+export function needleValue(layout, drive) {
+  const names = needleChoices(drive);
+  if (names.includes(layout.needleValue)) return layout.needleValue;
+  return ["Oil temp", "Coolant", "Torque", "Pedal"].find((n) => names.includes(n)) || names[0] || null;
+}
 
 /**
  * Where each gauge goes at first, and whether it's shown. x, y: its top-left, fractions of the
@@ -34,9 +54,11 @@ export function defaultLayout(aspect = 16 / 9) {
   const mx = 4 * ux, my = 4 * uy; // the margin
   const left = (units) => mx + units * ux, right = (units) => 1 - mx - units * ux;
   const bottom = (units) => 1 - my - units * uy;
+  const centre = (units) => 0.5 + units * ux;
   return {
     scale: 1, units: "kmh",
     values: ["Torque", "Coolant"],
+    needleStyle: "minimal", needleValue: null,
     widgets: {
       dial: { on: true, x: left(0), y: bottom(30) },
       pedal: { on: true, x: left(32), y: bottom(30) },
@@ -46,6 +68,10 @@ export function defaultLayout(aspect = 16 / 9) {
       lap: { on: true, x: left(0), y: my },
       values: { on: false, x: right(24), y: my + 27 * uy },
       attitude: { on: false, x: left(40), y: bottom(32) },
+      speedo: { on: false, x: centre(-27), y: bottom(26) },
+      tacho: { on: false, x: centre(1), y: bottom(26) },
+      boostNeedle: { on: false, x: right(42), y: bottom(18) },
+      needle: { on: false, x: left(0), y: my + 16 * uy },
     },
   };
 }
@@ -61,7 +87,36 @@ export function prepare(drive) {
   // The track: every 2 s of the drive, in metres east and north.
   const path = [];
   for (let i = 0; i < drive.n; i += drive.rate * 2) path.push([drive.x[i], drive.y[i]]);
-  return { laps, best, rpmMax, boost: boost ? { min: Math.min(boost.min ?? -0.5, -0.5), max: Math.max(boost.max ?? 2, 1) } : null, path };
+  // The speedometer's reach: the drive's top speed (the car's, else the GPS's), in km/h.
+  const speed = drive.byName.Speed;
+  const speedTop = speed ? highest(speed.values) : drive.hasGps ? highest(drive.speed) * 3.6 : 0;
+  return { laps, best, rpmMax, boost: boost ? { min: Math.min(boost.min ?? -0.5, -0.5), max: Math.max(boost.max ?? 2, 1) } : null, path, speedTop, ranges: {},
+    // The rev counter's red line: the engine's, not the drive's (#62).
+    engine: engineOf(drive.header?.car || {}, [...drive.channels, ...drive.phone].map((c) => c.name)),
+    rpmTop: rpm ? highest(rpm.values) : 0 };
+}
+
+function highest(values) {
+  let m = -Infinity;
+  for (const v of values) if (v > m) m = v;
+  return Number.isFinite(m) ? m : 0;
+}
+
+/**
+ * A value needle's dial: round numbers over the channel's own range (as Drive Replay's charts),
+ * stretched to what the drive saw unless that's far out (an estimate's spike).
+ */
+function valueScale(drive, prep, name) {
+  if (prep.ranges[name]) return prep.ranges[name];
+  const c = drive.byName[name];
+  let lo = Infinity, hi = -Infinity;
+  for (const v of c.values) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (Number.isFinite(c.min) && Number.isFinite(c.max) && c.max > c.min) {
+    const reach = (c.max - c.min) * 0.25;
+    lo = lo < c.min && lo >= c.min - reach ? lo : c.min;
+    hi = hi > c.max && hi <= c.max + reach ? hi : c.max;
+  } else if (!Number.isFinite(lo)) { lo = 0; hi = 100; }
+  return (prep.ranges[name] = niceScale(lo, hi, { most: 6 }));
 }
 
 /** The values at drive time t. */
@@ -268,6 +323,33 @@ const DRAW = {
     });
   },
 
+  speedo(g, u, f, ctx) {
+    const mph = ctx.layout.units === "mph", k = mph ? 1 / 1.609344 : 1, v = f.speed * k;
+    drawNeedleGauge(g, 26 * u, { style: ctx.layout.needleStyle, kind: "speed", scale: speedScale(ctx.prep.speedTop * k, mph), value: v, readout: fmt(v), unit: mph ? "mph" : "km/h" });
+  },
+
+  tacho(g, u, f, ctx) {
+    const rpm = f.rpm;
+    drawNeedleGauge(g, 26 * u, {
+      style: ctx.layout.needleStyle, kind: "rpm", scale: rpmScale(ctx.prep.engine.redline, ctx.prep.rpmTop), value: rpm, labelOf: (v) => String(v / 1000),
+      readout: Number.isFinite(rpm) ? String(Math.round(rpm / 10) * 10) : "—", unit: "rpm", caption: "×1000 rpm",
+    });
+  },
+
+  boostNeedle(g, u, f, ctx) {
+    const { min, max } = ctx.prep.boost || { min: -0.5, max: 2 };
+    drawNeedleGauge(g, 18 * u, { style: ctx.layout.needleStyle, kind: "boost", scale: niceScale(min, max, { most: 6 }), value: f.boost, readout: fmt(f.boost, 2), unit: "bar", caption: "boost bar", small: true });
+  },
+
+  needle(g, u, f, ctx) {
+    const name = needleValue(ctx.layout, ctx.drive);
+    const c = ctx.drive.byName[name], v = value(ctx.drive, name, f.t);
+    drawNeedleGauge(g, 18 * u, {
+      style: ctx.layout.needleStyle, kind: "value", scale: valueScale(ctx.drive, ctx.prep, name), value: v, readout: fmt(v, c.digits ?? 0),
+      unit: c.unit || "", caption: `${name}${c.unit ? ` ${c.unit}` : ""}`, small: true,
+    });
+  },
+
   attitude(g, u, f) {
     const w = 26 * u, h = 13 * u;
     panel(g, 0, 0, w, h, 2 * u);
@@ -304,7 +386,10 @@ export function widgetSize(id, u, ctx) {
 /** Whether a drive has what a gauge shows. */
 export function available(id, drive) {
   if (!drive) return true;
-  if (id === "dial") return !!drive.byName.Speed || drive.hasGps;
+  if (id === "dial" || id === "speedo") return !!drive.byName.Speed || drive.hasGps;
+  if (id === "tacho") return !!drive.byName.RPM;
+  if (id === "boostNeedle") return !!drive.byName.Boost;
+  if (id === "needle") return needleChoices(drive).length > 0;
   if (id === "boost") return !!drive.byName.Boost;
   if (id === "pedal") return !!drive.byName.Pedal;
   if (id === "gg") return drive.hasMotion || !!drive.byName.Lateral;

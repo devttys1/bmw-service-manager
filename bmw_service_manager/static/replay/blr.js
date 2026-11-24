@@ -123,7 +123,7 @@ export function eventNote(code, arg) {
     case "BOOT": return "Logger started";
     case "ENGINE_START": return "Engine started";
     case "ENGINE_STOP": return "Engine stopped";
-    case "SESSION_END": return "Logger session ended";
+    case "SESSION_END": return arg === 6 ? "Logger session ended: stopped from the app" : "Logger session ended"; // #51
     case "VIN": return null;
     case "ENET_LINK": return "Logger reached the car over ENET";
     case "DCAN_ONLY": return "No ENET link: the logger reads the car over D-CAN";
@@ -139,6 +139,36 @@ export function eventNote(code, arg) {
       : arg > 0 ? `GPS at ${Math.floor(1000 / arg)} Hz while logging: the module can't do 20 Hz` : `GPS rate ${arg}`;
     default: return `Logger event ${code}`;
   }
+}
+
+/** GNSS_ASSIST events closer than this (s) to the one before are one burst of the phone's assistance. */
+export const ASSIST_BURST_GAP = 5;
+
+/**
+ * The logger writes a GNSS_ASSIST event after each batch of the phone's assistance frames, with its running totals
+ * (4, 7, 10 … 36 frames in 0.8 s): one note per burst, not one per batch (#48), as the iOS app's import does.
+ * `first`: by the index in `records` of each burst's first event, the arg of its last (the final counts);
+ * `merged`: the burst's other events.
+ */
+export function assistBursts(records, time) {
+  const first = new Map(), merged = new Set();
+  let open = null;
+  records.forEach((r, i) => {
+    const p = r.payload;
+    if (r.type !== RECORD_TYPE.EVENT || p.length < PAYLOAD.EVENT.size) return;
+    const v = new DataView(p.buffer, p.byteOffset, p.byteLength);
+    if (ENUM.EVENT_CODE[v.getUint16(PAYLOAD.EVENT.code, true)] !== "GNSS_ASSIST") return;
+    const t = time(r), arg = v.getUint32(PAYLOAD.EVENT.arg, true);
+    if (open && t - open.last <= ASSIST_BURST_GAP) {
+      first.set(open.index, arg);
+      merged.add(i);
+      open.last = t;
+    } else {
+      first.set(i, arg);
+      open = { index: i, last: t };
+    }
+  });
+  return { first, merged };
 }
 
 /** A JSON number with at most `digits` decimals and no trailing zeros, as the app writes them. */
@@ -252,7 +282,8 @@ export function blrToLog(bytes, fileName = "session.BLR", { app = "Drive Replay 
     }
   };
 
-  for (const r of s.records) {
+  const assist = assistBursts(s.records, t);
+  s.records.forEach((r, i) => {
     const time = t(r), p = r.payload;
     accUpTo(time);
     if (r.type === RECORD_TYPE.GNSS_PVT) {
@@ -269,15 +300,16 @@ export function blrToLog(bytes, fileName = "session.BLR", { app = "Drive Replay 
     } else if (r.type === RECORD_TYPE.VBAT) {
       if (p.length >= PAYLOAD.VBAT.size) add("Battery", (p[0] | (p[1] << 8)) / 1000, time);
     } else if (r.type === RECORD_TYPE.EVENT) {
-      if (p.length >= PAYLOAD.EVENT.size) {
+      if (p.length >= PAYLOAD.EVENT.size && !assist.merged.has(i)) {
         const v = new DataView(p.buffer, p.byteOffset, p.byteLength);
-        const text = eventNote(v.getUint16(PAYLOAD.EVENT.code, true), v.getUint32(PAYLOAD.EVENT.arg, true));
+        const arg = assist.first.get(i) ?? v.getUint32(PAYLOAD.EVENT.arg, true);
+        const text = eventNote(v.getUint16(PAYLOAD.EVENT.code, true), arg);
         if (text !== null) note(text, time);
       }
     }
     // UDS values, raw CAN and the clock's PPS edges aren't in drive logs yet.
     lastT = Math.max(lastT, time);
-  }
+  });
   accUpTo(Infinity);
   flush();
   const end = s.records.length ? t(s.records[s.records.length - 1]) : 0;

@@ -16,11 +16,11 @@ It was developed on an F48 X1 with NBT Evo; other cars should work but haven't a
 
 | Your computer | Download |
 | --- | --- |
-| Mac (Apple silicon or Intel) | [Boostbook-for-Desktop-1.6.0-macOS.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-macOS.zip) |
-| Windows 10 or 11 (64-bit) | [Boostbook-for-Desktop-1.6.0-Windows.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-Windows.zip) |
-| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [Boostbook-for-Desktop-1.6.0-Linux.tar.gz](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.6.0/Boostbook-for-Desktop-1.6.0-Linux.tar.gz) |
+| Mac (Apple silicon or Intel) | [Boostbook-for-Desktop-1.7.0-macOS.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.7.0/Boostbook-for-Desktop-1.7.0-macOS.zip) |
+| Windows 10 or 11 (64-bit) | [Boostbook-for-Desktop-1.7.0-Windows.zip](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.7.0/Boostbook-for-Desktop-1.7.0-Windows.zip) |
+| Linux (64-bit Intel/AMD, or ARM such as a Raspberry Pi 4 or 5) | [Boostbook-for-Desktop-1.7.0-Linux.tar.gz](https://github.com/devttys1/boostbook-for-desktop/releases/download/v1.7.0/Boostbook-for-Desktop-1.7.0-Linux.tar.gz) |
 
-This is version 1.6.0. All versions are on the [Releases](https://github.com/devttys1/boostbook-for-desktop/releases) page.
+This is version 1.7.0. All versions are on the [Releases](https://github.com/devttys1/boostbook-for-desktop/releases) page.
 
 ## Start it
 
@@ -63,7 +63,7 @@ how it finds the car. It needs macOS 13 (Ventura) or later.
 
 ### Windows
 
-1. Right-click the downloaded **Boostbook-for-Desktop-1.6.0-Windows.zip**, choose **Extract All...**,
+1. Right-click the downloaded **Boostbook-for-Desktop-1.7.0-Windows.zip**, choose **Extract All...**,
    then **Extract**. Use the extracted **Boostbook for Desktop** folder, not the zip.
 2. Double-click **Try without a car**.
 3. The first time, Windows may say **Windows protected your PC**. Click **More info**, then
@@ -78,7 +78,7 @@ how it finds the car.
 ### Linux
 
 1. Extract the download: right-click it and choose **Extract Here**, or in a terminal
-   `tar xzf Boostbook-for-Desktop-1.6.0-Linux.tar.gz`.
+   `tar xzf Boostbook-for-Desktop-1.7.0-Linux.tar.gz`.
 2. Run **try-without-a-car.sh** in the **Boostbook for Desktop** folder (double-click it and
    choose **Run in Terminal**, or run it from a terminal).
 3. Your web browser shows Boostbook for Desktop. If it doesn't open by itself, open the address
@@ -155,7 +155,8 @@ governments, Esri, OpenTopoMap, OpenStreetMap, AWS).
 **Video overlay.** The **Video overlay** page puts a drive's gauges over a video of it: open
 the video (MP4 or MOV, from a GoPro or a phone) and the drive's `.bblog.gz` (or the logger's `.BLR`). Speed and RPM,
 boost, pedal, g-forces, the track map, a lap timer, pitch and roll and any other values go over
-it; drag them where you want them. A GoPro's own GPS and accelerometer line the two up to a frame
+it; drag them where you want them. Needle gauges too: a speedometer, a rev counter, boost and
+any one value, in one of five styles (minimal, classic, sport, digital centre or vintage). A GoPro's own GPS and accelerometer line the two up to a frame
 or two; for other cameras the file's creation time is a start, then nudge it or say when one
 moment was in the drive. **Export MP4** draws every frame with the gauges and saves a new video
 with the sound. It needs Chrome, Edge or Safari 17 or later (WebCodecs); HEVC videos need a
